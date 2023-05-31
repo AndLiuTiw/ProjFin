@@ -14,19 +14,19 @@ enum logic [2:0] {IDLE, READ, BLOCK, COMPUTE, WRITE} state;
 // or modify these variables. Code below is more as a reference.
 
 // Local variables
-logic [31:0] w[64];
-logic [31:0] message[20];
+logic [31:0] w[64]; 
+logic [31:0] message[20]; //These are the 20 message blocks, each one is 512 bits
 logic [31:0] wt;
-logic [31:0] h0, h1, h2, h3, h4, h5, h6, h7;
-logic [31:0] a, b, c, d, e, f, g, h;
+logic [31:0] h0, h1, h2, h3, h4, h5, h6, h7; //initialized in always_ff block
+logic [31:0] a, b, c, d, e, f, g, h; //initialized in always_ff block
 logic [ 7:0] i, j;
-logic [15:0] offset; // in word address
-logic [ 7:0] num_blocks;
+logic [15:0] offset; // in word address 
+logic [ 7:0] num_blocks; //initialized by determine_num_blocks function
 logic        cur_we;
 logic [15:0] cur_addr;
 logic [31:0] cur_write_data;
 logic [512:0] memory_block;
-logic [ 7:0] tstep;
+logic [ 7:0] tstep; //initialized by starter code
 
 // SHA256 K constants
 parameter int k[0:63] = '{
@@ -63,9 +63,9 @@ begin
     // Student to add remaning code below
     // Refer to SHA256 discussion slides to get logic for this function
     ch = (e & f) ^ ((~e) & g);
-    t1 = h + S1 + ch + k[t] + w[t];
+    t1 = h + S1 + ch + k[tstep] + w[tstep];
     S0 = rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22);
-    maj = (A & B) ^ (A & C) ^ (B & C);
+    maj = (a & b) ^ (a & c) ^ (b & c);
     t2 = S0 + maj;
     sha256_op = {t1 + t2, a, b, c, d + t1, e, f, g};
 end
@@ -135,17 +135,6 @@ begin
     BLOCK: begin
 	// Fetch message in 512-bit block size
 	// For each of 512-bit block initiate hash value computation
-       
-
-
-
-   
-
-
-
-
-    
-
     end
 
     // For each block compute hash function
@@ -155,20 +144,6 @@ begin
     COMPUTE: begin
 	// 64 processing rounds steps for 512-bit block 
         if (i <= 64) begin
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         end
     end
 
@@ -176,9 +151,6 @@ begin
     // h0 to h7 after compute stage has final computed hash value
     // write back these h0 to h7 to memory starting from output_addr
     WRITE: begin
-   
-
-
     end
    endcase
   end
