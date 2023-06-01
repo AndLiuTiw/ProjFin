@@ -14,18 +14,18 @@ enum logic [2:0] {IDLE, READ, BLOCK, COMPUTE, WRITE} state;
 // or modify these variables. Code below is more as a reference.
 
 // Local variables
-logic [31:0] w[64]; 
+logic [31:0] w[64]; //To be used in word expansion and sha operation steps, have not initialized yet
 logic [31:0] message[20]; //These are the 20 message blocks, each one is 512 bits
-logic [31:0] wt;
+logic [31:0] wt; //Wtf is this? (uninitialized)
 logic [31:0] h0, h1, h2, h3, h4, h5, h6, h7; //initialized in always_ff block
 logic [31:0] a, b, c, d, e, f, g, h; //initialized in always_ff block
-logic [ 7:0] i, j;
-logic [15:0] offset; // in word address 
+logic [ 7:0] i, j; //i has been initialized in IDLE, not sure about j's utility (it has also been initialized)
+logic [15:0] offset; // in word address //initialized in IDLE state
 logic [ 7:0] num_blocks; //initialized by determine_num_blocks function
-logic        cur_we;
-logic [15:0] cur_addr;
-logic [31:0] cur_write_data;
-logic [512:0] memory_block;
+logic        cur_we; //initialized in IDLE state 
+logic [15:0] cur_addr; //Initialized in IDLE state
+logic [31:0] cur_write_data; //Unitialized, it's use is understood
+logic [512:0] memory_block; //Not sure how this is to be used (unitialized)
 logic [ 7:0] tstep; //initialized by starter code
 
 // SHA256 K constants
@@ -76,7 +76,7 @@ endfunction
 // for reading from memory to get original message
 // for writing final computed has value
 assign mem_clk = clk;
-assign mem_addr = cur_addr + offset;
+assign mem_addr = cur_addr + offset; 
 assign mem_we = cur_we;
 assign mem_write_data = cur_write_data;
 
@@ -118,14 +118,19 @@ begin
 			h5 <= 32'h9b05688c;
 			h6 <= 32'h1f83d9ab;
 			h7 <= 32'h5be0cd19;
-			a <= 32'h6a09e667;
-			b <= 32'hbb67ae85;
-			c <= 32'h3c6ef372;
-			d <= 32'ha54ff53a;
-			e <= 32'h510e527f;
-			f <= 32'h9b05688c;
-			g <= 32'h1f83d9ab;
-			h <= 32'h5be0cd19;
+			a <= 0; //I think a through h should be 0 because in the 1st special case, nothing needs to be added to h0 to h7
+			b <= 0;
+			c <= 0;
+			d <= 0;
+			e <= 0;
+			f <= 0;
+			g <= 0;
+			h <= 0;
+			cur_we <= 0; //Because nothing needs to be written to memory right now (in the idle state)
+			offset <= 0; //Should probably be 0 initially
+			curr_addr <= message_addr; //Because curr_addr should be initialized to 1st message location (address of W0 (We have words from W0 to W15))in memory
+			i <= 0; //Initializing to 0 for now, not sure if this needs to be 0 or 1 or something else
+			j <= 0; //Don't even know if this will be used
        end
     end
 
