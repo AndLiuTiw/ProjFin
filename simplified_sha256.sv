@@ -151,9 +151,8 @@ begin
     BLOCK: begin
 	// Fetch message in 512-bit block size
 	// For each of 512-bit block initiate hash value computation
-		if (j == 0) memory_block <= {message[0],message[1],message[2],message[3],message[4],message[5],message[6],message[7],message[8],message[9],message[10],message[11],message[12],message[13],message[14],message[15]};
+		if (j == 0)	memory_block <= {message[0],message[1],message[2],message[3],message[4],message[5],message[6],message[7],message[8],message[9],message[10],message[11],message[12],message[13],message[14],message[15]};
 		else memory_block <= {message[16],message[17],message[18],message[19],1'b1,319'b0,64'd640};
-		
 		h0 <= a;
 		h1 <= b;
 		h2 <= c;
@@ -162,6 +161,11 @@ begin
 		h5 <= f;
 		h6 <= g;
 		h7 <= h;
+		
+		j++;
+		
+		if (j == 2) state <= WRITE;
+		else state <= COMPUTE
     end
 
     // For each block compute hash function
