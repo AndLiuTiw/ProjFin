@@ -1,3 +1,4 @@
+// NOTE : Below mentioned frame work is for reference purpose.
 module simplified_sha256 #(parameter integer NUM_OF_WORDS = 20)(
  input logic  clk, reset_n, start,
  input logic  [15:0] message_addr, output_addr,
@@ -15,17 +16,17 @@ enum logic [2:0] {IDLE, READ, BLOCK, COMPUTE, WRITE} state;
 
 // Local variables
 logic [31:0] w[64]; //To be used in word expansion and sha operation steps, have not initialized yet
-logic [31:0] message[20]; //These are the 20 message blocks, each one is 512 bits
+logic [31:0] message[20]; //These are the 20 message blocks, each one is 32 bits
 logic [31:0] wt; //Wtf is this? (uninitialized)
 logic [31:0] h0, h1, h2, h3, h4, h5, h6, h7; //initialized in always_ff block
 logic [31:0] a, b, c, d, e, f, g, h; //initialized in always_ff block
-logic [ 7:0] i, j; //i has been initialized in IDLE, not sure about j's utility (it has also been initialized)
+logic [ 7:0] i, j; //i has been initialized in IDLE, we're using j as the index variable to load different blocks
 logic [15:0] offset; // in word address //initialized in IDLE state
 logic [ 7:0] num_blocks; //initialized by determine_num_blocks function
 logic        cur_we; //initialized in IDLE state 
 logic [15:0] cur_addr; //Initialized in IDLE state
 logic [31:0] cur_write_data; //Unitialized, it's use is understood
-logic [512:0] memory_block; //Not sure how this is to be used (unitialized)
+logic [511:0] memory_block; //Not sure how this is to be used (unitialized)
 logic [ 7:0] tstep; //initialized by starter code
 
 // SHA256 K constants
@@ -128,11 +129,21 @@ begin
 			h <= 0;
 			cur_we <= 0; //Because nothing needs to be written to memory right now (in the idle state)
 			offset <= 0; //Should probably be 0 initially
-			curr_addr <= message_addr; //Because curr_addr should be initialized to 1st message location (address of W0 (We have words from W0 to W15))in memory
+			cur_addr <= message_addr; //Because curr_addr should be initialized to 1st message location (address of W0 (We have words from W0 to W15))in memory
 			i <= 0; //Initializing to 0 for now, not sure if this needs to be 0 or 1 or something else
 			j <= 0; //Don't even know if this will be used
+			state <= READ;
        end
     end
+	 
+	 //Adding a READ state to Read 640 bits message from testbench memory in chunks of 32bits words (i.e. read 20 locations from memory by incrementing address offset)
+	 READ: begin
+		for(int idx = 0; idx < 20; idx++) begin
+			message[idx] <= mem_read_data;
+			offset <= offset + 16'd32; //Could be 1, setting to 32 right now
+		end
+		state <= BLOCK;
+	 end
 
     // SHA-256 FSM 
     // Get a BLOCK from the memory, COMPUTE Hash output using SHA256 function    
@@ -140,6 +151,17 @@ begin
     BLOCK: begin
 	// Fetch message in 512-bit block size
 	// For each of 512-bit block initiate hash value computation
+		if (j == 0) memory_block <= {message[0],message[1],message[2],message[3],message[4],message[5],message[6],message[7],message[8],message[9],message[10],message[11],message[12],message[13],message[14],message[15]};
+		else memory_block <= {message[16],message[17],message[18],message[19],1'b1,319'b0,64'd640};
+		
+		h0 <= a;
+		h1 <= b;
+		h2 <= c;
+		h3 <= d;
+		h4 <= e;
+		h5 <= f;
+		h6 <= g;
+		h7 <= h;
     end
 
     // For each block compute hash function
