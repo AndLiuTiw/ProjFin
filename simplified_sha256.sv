@@ -130,7 +130,7 @@ begin
 			cur_we <= 0; //Because nothing needs to be written to memory right now (in the idle state)
 			offset <= 0; //Should probably be 0 initially
 			cur_addr <= message_addr; //Because curr_addr should be initialized to 1st message location (address of W0 (We have words from W0 to W15))in memory
-			i <= 0; //Initializing to 0 for now, not sure if this needs to be 0 or 1 or something else
+			i <= 1; //Initializing to 1 because tstep = i - 1 and tstep should start from 0
 			j <= 0; //Don't even know if this will be used
 			state <= READ;
        end
@@ -151,10 +151,7 @@ begin
     BLOCK: begin
 	// Fetch message in 512-bit block size
 	// For each of 512-bit block initiate hash value computation
-		if (j == 0) memory_block <= {message[0],message[1],message[2],message[3],message[4],message[5],message[6],message[7],message[8],message[9],message[10],message[11],message[12],message[13],message[14],message[15]};
-		else memory_block <= {message[16],message[17],message[18],message[19],1'b1,319'b0,64'd640};
-		
-		h0 <= a;
+	   h0 <= a;
 		h1 <= b;
 		h2 <= c;
 		h3 <= d;
@@ -162,6 +159,19 @@ begin
 		h5 <= f;
 		h6 <= g;
 		h7 <= h;
+		if (j == 0) begin 
+			memory_block <= {message[15],message[14],message[13],message[12],message[11],message[10],message[9],message[8],message[7],message[6],message[5],message[4],message[3],message[2],message[1],message[0]};
+			j <= j + 1;
+			state <= COMPUTE;
+		end
+		else if (j == 1) begin
+			memory_block <= {64'd640,319'b0,1'b1,message[19],message[18],message[17],message[16]};
+			j <= j + 1;
+			state <= COMPUTE;
+		end
+		else begin //j is equal to 2
+			state <= WRITE;
+		end
     end
 
     // For each block compute hash function
@@ -171,7 +181,15 @@ begin
     COMPUTE: begin
 	// 64 processing rounds steps for 512-bit block 
         if (i <= 64) begin
-        end
+			if(i <= 16) begin
+				w[tstep] = dpsram_tb[tstep];
+			end
+			else begin
+			end
+			i <= i + 1;
+			state <= COMPUTE;
+		  end
+		  state <= BLOCK;
     end
 
     // h0 to h7 each are 32 bit hashes, which makes up total 256 bit value
