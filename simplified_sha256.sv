@@ -60,6 +60,7 @@ endfunction
 function logic [255:0] sha256_op(input logic [31:0] a, b, c, d, e, f, g, h, w,
                                  input logic [7:0] t);
     logic [31:0] S1, S0, ch, maj, t1, t2; // internal signals
+	 logic [255:0] packed_return; //return value
 begin
     S1 = rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25);
     // Student to add remaning code below
@@ -69,7 +70,8 @@ begin
     S0 = rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22);
     maj = (a & b) ^ (a & c) ^ (b & c);
     t2 = S0 + maj;
-    sha256_op = {t1 + t2, a, b, c, d + t1, e, f, g};
+    packed_return = {t1 + t2, a, b, c, d + t1, e, f, g};
+	 return packed_return;
 end
 endfunction
 
@@ -239,6 +241,7 @@ begin
 			state <= COMPUTE; //Go back to compute state if i is less than or equal to 64
 		  end
 		  else if(i <= 128) begin //For i values from 65 to 128. this is the sha256_op part
+		   logic [255:0] sha256_func_output = sha256_op(a, b, c, d, e, f, g, h, w, tstep);
 			a <= sha256_func_output[255:224];
 			b <= sha256_func_output[223:192];
 			c <= sha256_func_output[191:160];
@@ -263,7 +266,7 @@ begin
    endcase
   end
 
-assign sha256_func_output = sha256_op(a, b, c, d, e, f, g, h, w, tstep);
+//assign sha256_func_output = sha256_op(a, b, c, d, e, f, g, h, w, tstep);
 // Generate done when SHA256 hash computation has finished and moved to IDLE state
 assign done = (state == IDLE);
 
