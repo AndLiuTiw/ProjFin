@@ -17,7 +17,7 @@ enum logic [2:0] {IDLE, READ, BLOCK, COMPUTE, WRITE} state;
 // Local variables
 logic [31:0] w[64]; //To be used in word expansion and sha operation steps, have not initialized yet
 logic [31:0] message[20]; //These are the 20 message blocks, each one is 32 bits
-logic [31:0] wt; //Wtf is this? (uninitialized)
+logic [31:0] wt; //Wtf is this (unused for now)
 logic [31:0] h0, h1, h2, h3, h4, h5, h6, h7; //initialized in always_ff block
 logic [31:0] a, b, c, d, e, f, g, h; //initialized in always_ff block
 logic [ 7:0] i, j; //i has been initialized in IDLE, we're using j as the index variable to load different blocks
@@ -28,6 +28,7 @@ logic [15:0] cur_addr; //Initialized in IDLE state
 logic [31:0] cur_write_data; //Unitialized, it's use is understood
 logic [511:0] memory_block; //Not sure how this is to be used (unitialized)
 logic [ 7:0] tstep; //initialized by starter code
+logic [255:0] sha256_func_output;
 
 // SHA256 K constants
 parameter int k[0:63] = '{
@@ -180,16 +181,78 @@ begin
     // move to WRITE stage
     COMPUTE: begin
 	// 64 processing rounds steps for 512-bit block 
-        if (i <= 64) begin
-			if(i <= 16) begin
-				w[tstep] = dpsram_tb[tstep];
-			end
-			else begin
-			end
+        if (i <= 64) begin //For i values from 1 to 64, this is the word expansion part
+			case (i)
+				1 : begin
+					w[tstep] <= memory_block[31:0];
+				end
+				2 : begin
+					w[tstep] <= memory_block[63:32];
+				end
+				3 : begin
+					w[tstep] <= memory_block[95:64];
+				end
+				4 : begin
+					w[tstep] <= memory_block[127:96];
+				end
+				5 : begin
+					w[tstep] <= memory_block[159:128];
+				end
+				6 : begin
+					w[tstep] <= memory_block[191:160];
+				end
+				7 : begin
+					w[tstep] <= memory_block[223:192];
+				end
+				8 : begin
+					w[tstep] <= memory_block[255:224];
+				end
+				9 : begin
+					w[tstep] <= memory_block[287:256];
+				end
+				10 : begin
+					w[tstep] <= memory_block[319:288];
+				end
+				11 : begin
+					w[tstep] <= memory_block[351:320];
+				end
+				12 : begin
+					w[tstep] <= memory_block[383:352];
+				end
+				13 : begin
+					w[tstep] <= memory_block[415:384];
+				end
+				14 : begin
+					w[tstep] <= memory_block[447:416];
+				end
+				15 : begin
+					w[tstep] <= memory_block[479:448];
+				end
+				16 : begin
+					w[tstep] <= memory_block[511:480];
+				end
+				default : begin //For i = 17 to 64
+					w[tstep] <= w[tstep - 16] + w[tstep - 7] + (rightrotate(w[tstep - 15],7) ^ rightrotate(w[tstep - 15],18) ^ (w[tstep - 15] >> 3)) + (rightrotate(w[tstep - 2],17) ^ rightrotate(w[tstep - 2],19) ^ (w[tstep - 2] >> 10));
+				end
+			endcase
 			i <= i + 1;
-			state <= COMPUTE;
+			state <= COMPUTE; //Go back to compute state if i is less than or equal to 64
 		  end
-		  state <= BLOCK;
+		  else if(i <= 128) begin //For i values from 65 to 128. this is the sha256_op part
+			a <= sha256_func_output[255:224];
+			b <= sha256_func_output[223:192];
+			c <= sha256_func_output[191:160];
+			d <= sha256_func_output[159:128];
+			e <= sha256_func_output[127:96];
+			f <= sha256_func_output[95:64];
+			g <= sha256_func_output[63:32];
+			h <= sha256_func_output[31:0];
+			i <= i + 1;
+			state <= COMPUTE; //Go back to compute if i value is in [65, 128]
+		  end
+		  else begin //For i value 29
+			state <= BLOCK; //Go to BLOCK state if i value is 129
+		  end
     end
 
     // h0 to h7 each are 32 bit hashes, which makes up total 256 bit value
@@ -200,6 +263,7 @@ begin
    endcase
   end
 
+assign sha256_func_output = sha256_op(a, b, c, d, e, f, g, h, w, tstep);
 // Generate done when SHA256 hash computation has finished and moved to IDLE state
 assign done = (state == IDLE);
 
