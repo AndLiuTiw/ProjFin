@@ -28,7 +28,8 @@ logic [15:0] cur_addr; //Initialized in IDLE state
 logic [31:0] cur_write_data; //Unitialized, it's use is understood
 logic [511:0] memory_block; //Not sure how this is to be used (unitialized)
 logic [ 7:0] tstep; //initialized by starter code
-logic [255:0] sha256_func_output;
+//logic [255:0] sha256_func_output;
+logic [31:0] S1, S0, ch, maj, t1, t2; // added to bypass sha256_op function
 
 // SHA256 K constants
 parameter int k[0:63] = '{
@@ -57,23 +58,23 @@ endfunction
 
 
 // SHA256 hash round
-function logic [255:0] sha256_op(input logic [31:0] a, b, c, d, e, f, g, h, w,
-                                 input logic [7:0] t);
-    logic [31:0] S1, S0, ch, maj, t1, t2; // internal signals
-	 logic [255:0] packed_return; //return value
-begin
-    S1 = rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25);
-    // Student to add remaning code below
-    // Refer to SHA256 discussion slides to get logic for this function
-    ch = (e & f) ^ ((~e) & g);
-    t1 = h + S1 + ch + k[tstep] + w[tstep];
-    S0 = rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22);
-    maj = (a & b) ^ (a & c) ^ (b & c);
-    t2 = S0 + maj;
-    packed_return = {t1 + t2, a, b, c, d + t1, e, f, g};
-	 return packed_return;
-end
-endfunction
+//function logic [255:0] sha256_op(input logic [31:0] a, b, c, d, e, f, g, h, w,
+//                                 input logic [7:0] t);
+//    logic [31:0] S1, S0, ch, maj, t1, t2; // internal signals
+//	 logic [255:0] packed_return; //return value
+//begin
+//    S1 = rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25);
+//    // Student to add remaning code below
+//    // Refer to SHA256 discussion slides to get logic for this function
+//    ch = (e & f) ^ ((~e) & g);
+//    t1 = h + S1 + ch + k[tstep] + w[tstep];
+//    S0 = rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22);
+//    maj = (a & b) ^ (a & c) ^ (b & c);
+//    t2 = S0 + maj;
+//    packed_return = {t1 + t2, a, b, c, d + t1, e, f, g};
+//	 return packed_return;
+//end
+//endfunction
 
 
 // Generate request to memory
@@ -241,15 +242,22 @@ begin
 			state <= COMPUTE; //Go back to compute state if i is less than or equal to 64
 		  end
 		  else if(i <= 128) begin //For i values from 65 to 128. this is the sha256_op part
-		   logic [255:0] sha256_func_output = sha256_op(a, b, c, d, e, f, g, h, w, tstep);
-			a <= sha256_func_output[255:224];
-			b <= sha256_func_output[223:192];
-			c <= sha256_func_output[191:160];
-			d <= sha256_func_output[159:128];
-			e <= sha256_func_output[127:96];
-			f <= sha256_func_output[95:64];
-			g <= sha256_func_output[63:32];
-			h <= sha256_func_output[31:0];
+		   //Start of Section added to bypass sha256_op function
+		   S1 = rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25);
+			ch = (e & f) ^ ((~e) & g);
+			t1 = h + S1 + ch + k[tstep] + w[tstep];
+			S0 = rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22);
+			maj = (a & b) ^ (a & c) ^ (b & c);
+			t2 = S0 + maj;
+			//End of Section added to bypass sha256_op function
+			a <= t1 + t2;
+			b <= a;
+			c <= b;
+			d <= c;
+			e <= d + t1;
+			f <= e;
+			g <= f;
+			h <= g;
 			i <= i + 1;
 			state <= COMPUTE; //Go back to compute if i value is in [65, 128]
 		  end
