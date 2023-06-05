@@ -45,7 +45,7 @@ parameter int k[0:63] = '{
 
 
 assign num_blocks = determine_num_blocks(NUM_OF_WORDS); 
-assign tstep = (i - 1);
+assign tstep = (i - 8'd1);
 
 // Note : Function defined are for reference purpose. Feel free to add more functions or modify below.
 // Function to determine number of blocks in memory to fetch
@@ -67,12 +67,11 @@ endfunction
 //    // Student to add remaning code below
 //    // Refer to SHA256 discussion slides to get logic for this function
 //    ch = (e & f) ^ ((~e) & g);
-//    t1 = h + S1 + ch + k[tstep] + w[tstep];
+//    t1 = h + S1 + ch + k[t] + w[t];
 //    S0 = rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22);
 //    maj = (a & b) ^ (a & c) ^ (b & c);
 //    t2 = S0 + maj;
-//    packed_return = {t1 + t2, a, b, c, d + t1, e, f, g};
-//	 return packed_return;
+//    sha256_op = {t1 + t2, a, b, c, d + t1, e, f, g};
 //end
 //endfunction
 
@@ -144,7 +143,7 @@ begin
 	 READ: begin
 		for(int idx = 0; idx < 20; idx++) begin
 			message[idx] <= mem_read_data;
-			offset <= offset + 16'd32; //Could be 1, setting to 32 right now
+			offset <= offset + 16'd1; //Could be 1, setting to 32 right now
 		end
 		state <= BLOCK;
 	 end
@@ -165,16 +164,19 @@ begin
 		h7 <= h;
 		if (j == 0) begin 
 			memory_block <= {message[15],message[14],message[13],message[12],message[11],message[10],message[9],message[8],message[7],message[6],message[5],message[4],message[3],message[2],message[1],message[0]};
-			j <= j + 1;
+			j <= j + 8'd1;
 			state <= COMPUTE;
 		end
 		else if (j == 1) begin
 			memory_block <= {64'd640,319'b0,1'b1,message[19],message[18],message[17],message[16]};
-			j <= j + 1;
+			j <= j + 8'd1;
 			state <= COMPUTE;
 		end
 		else begin //j is equal to 2
 			state <= WRITE;
+			cur_we <= 1;
+			cur_addr <= output_addr;
+			offset <= 0;
 		end
     end
 
@@ -238,7 +240,7 @@ begin
 					w[tstep] <= w[tstep - 16] + w[tstep - 7] + (rightrotate(w[tstep - 15],7) ^ rightrotate(w[tstep - 15],18) ^ (w[tstep - 15] >> 3)) + (rightrotate(w[tstep - 2],17) ^ rightrotate(w[tstep - 2],19) ^ (w[tstep - 2] >> 10));
 				end
 			endcase
-			i <= i + 1;
+			i <= i + 8'd1;
 			state <= COMPUTE; //Go back to compute state if i is less than or equal to 64
 		  end
 		  else if(i <= 128) begin //For i values from 65 to 128. this is the sha256_op part
@@ -258,10 +260,27 @@ begin
 			f <= e;
 			g <= f;
 			h <= g;
-			i <= i + 1;
+			i <= i + 8'd1;
+//		   logic [255:0] sha256_func_output = sha256_op(a, b, c, d, e, f, g, h, w, tstep);
+//			a <= sha256_func_output[255:224];
+//			b <= sha256_func_output[223:192];
+//			c <= sha256_func_output[191:160];
+//			d <= sha256_func_output[159:128];
+//			e <= sha256_func_output[127:96];
+//			f <= sha256_func_output[95:64];
+//			g <= sha256_func_output[63:32];
+//			h <= sha256_func_output[31:0];
 			state <= COMPUTE; //Go back to compute if i value is in [65, 128]
 		  end
 		  else begin //For i value 29
+			h0 <= h0 + a;
+			h1 <= h1 + b;
+			h2 <= h2 + c;
+			h3 <= h3 + d;
+			h4 <= h4 + e;
+			h5 <= h5 + f;
+			h6 <= h6 + g;
+			h7 <= h7 + h;
 			state <= BLOCK; //Go to BLOCK state if i value is 129
 		  end
     end
@@ -270,6 +289,20 @@ begin
     // h0 to h7 after compute stage has final computed hash value
     // write back these h0 to h7 to memory starting from output_addr
     WRITE: begin
+		for(int idx = 0; idx < 8; idx++) begin
+			case(idx)
+				0: cur_write_data <= h0;
+				1: cur_write_data <= h1;
+				2: cur_write_data <= h2;
+				3: cur_write_data <= h3;
+				4: cur_write_data <= h4;
+				5: cur_write_data <= h5;
+				6: cur_write_data <= h6;
+				7: cur_write_data <= h7;
+				default: ;
+			endcase
+			offset <= offset + 16'd1; //Could be 1, setting to 32 right now
+		end
     end
    endcase
   end
