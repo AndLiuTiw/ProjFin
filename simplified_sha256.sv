@@ -18,9 +18,9 @@ enum logic [2:0] {IDLE, READ, BLOCK, COMPUTE, WRITE} state;
 logic [31:0] w[64]; //To be used in word expansion and sha operation steps, have not initialized yet
 logic [31:0] message[20]; //These are the 20 message blocks, each one is 32 bits
 logic [31:0] wt; //Wtf is this (unused for now)
-logic [31:0] h0, h1, h2, h3, h4, h5, h6, h7; //initialized in always_ff block
-logic [31:0] a, b, c, d, e, f, g, h; //initialized in always_ff block
-logic [ 7:0] i, j; //i has been initialized in IDLE, we're using j as the index variable to load different blocks
+logic [31:0] h0, h1, h2, h3, h4, h5, h6, h7; //initialized in always_ff block BLOCK state
+logic [31:0] a, b, c, d, e, f, g, h; //initialized in always_ff block IDLE state
+logic [ 7:0] i, j, ind; //i has been initialized in IDLE, we're using j as the index variable to load different blocks, ind is being used in the WRITE state
 logic [15:0] offset; // in word address //initialized in IDLE state
 logic [ 7:0] num_blocks; //initialized by determine_num_blocks function
 logic        cur_we; //initialized in IDLE state 
@@ -114,23 +114,16 @@ begin
     // Initialize hash values h0 to h7 and a to h, other variables and memory we, address offset, etc
     IDLE: begin 
        if(start) begin
-       // Student to add rest of the code  
-			h0 <= 32'h6a09e667;
-			h1 <= 32'hbb67ae85;
-			h2 <= 32'h3c6ef372;
-			h3 <= 32'ha54ff53a;
-			h4 <= 32'h510e527f;
-			h5 <= 32'h9b05688c;
-			h6 <= 32'h1f83d9ab;
-			h7 <= 32'h5be0cd19;
-			a <= 0; //I think a through h should be 0 because in the 1st special case, nothing needs to be added to h0 to h7
-			b <= 0;
-			c <= 0;
-			d <= 0;
-			e <= 0;
-			f <= 0;
-			g <= 0;
-			h <= 0;
+       // Student to add rest of the code
+		   //a through h are initialized to initial hash values
+			a <= 32'h6a09e667; 
+			b <= 32'hbb67ae85;
+			c <= 32'h3c6ef372;
+			d <= 32'ha54ff53a;
+			e <= 32'h510e527f;
+			f <= 32'h9b05688c;
+			g <= 32'h1f83d9ab;
+			h <= 32'h5be0cd19;
 			cur_we <= 0; //Because nothing needs to be written to memory right now (in the idle state)
 			offset <= 0; //Should probably be 0 initially
 			cur_addr <= message_addr; //Because curr_addr should be initialized to 1st message location (address of W0 (We have words from W0 to W15))in memory
@@ -144,7 +137,7 @@ begin
 	 READ: begin
 		for(int idx = 0; idx < 20; idx++) begin
 			message[idx] <= mem_read_data;
-			offset <= offset + 16'd32; //Could be 1, setting to 32 right now
+			offset <= offset + 1; //Could be 32, setting to 1 right now
 		end
 		state <= BLOCK;
 	 end
@@ -174,6 +167,10 @@ begin
 			state <= COMPUTE;
 		end
 		else begin //j is equal to 2
+			cur_we <= 1; //Because the next state is the WRITE state
+			cur_addr <= output_addr; //Because the next state is the WRITE state
+			offset <= 0; //Because the next state is the WRITE state
+			ind <= 0; //Because the next state is the WRITE state
 			state <= WRITE;
 		end
     end
@@ -262,6 +259,15 @@ begin
 			state <= COMPUTE; //Go back to compute if i value is in [65, 128]
 		  end
 		  else begin //For i value 29
+		   //a through h are going to be used again BLOCK state to initialize h0 to h7
+		   a <= a + h0;
+			b <= b + h1;
+			c <= c + h2;
+			d <= d + h3;
+			e <= e + h4;
+			f <= f + h5;
+			g <= g + h6;
+			h <= h + h7;
 			state <= BLOCK; //Go to BLOCK state if i value is 129
 		  end
     end
@@ -270,6 +276,60 @@ begin
     // h0 to h7 after compute stage has final computed hash value
     // write back these h0 to h7 to memory starting from output_addr
     WRITE: begin
+		case (ind)
+			0 : begin
+				offset <= 0;
+				cur_write_data <= h0;
+				ind <= ind + 1;
+				state <= WRITE;
+			end
+			1 : begin
+				offset <= 1;
+				cur_write_data <= h1;
+				ind <= ind + 1;
+				state <= WRITE;
+			end
+			2 : begin
+				offset <= 2;
+				cur_write_data <= h2;
+				ind <= ind + 1;
+				state <= WRITE;
+			end
+			3 : begin
+				offset <= 3;
+				cur_write_data <= h3;
+				ind <= ind + 1;
+				state <= WRITE;
+			end
+			4 : begin
+				offset <= 4;
+				cur_write_data <= h4;
+				ind <= ind + 1;
+				state <= WRITE;
+			end
+			5 : begin
+				offset <= 5;
+				cur_write_data <= h5;
+				ind <= ind + 1;
+				state <= WRITE;
+			end
+			6 : begin
+				offset <= 6;
+				cur_write_data <= h6;
+				ind <= ind + 1;
+				state <= WRITE;
+			end
+			7 : begin
+				offset <= 7;
+				cur_write_data <= h7;
+				ind <= ind + 1;
+				state <= WRITE;
+			end
+			8 : begin
+				cur_we <= 0; //Because next state is IDLE state
+				state <= IDLE;
+			end
+		endcase
     end
    endcase
   end
