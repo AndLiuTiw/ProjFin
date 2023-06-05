@@ -17,7 +17,7 @@ enum logic [2:0] {IDLE, READ, BLOCK, COMPUTE, WRITE} state;
 // Local variables
 logic [31:0] w[64]; //To be used in word expansion and sha operation steps, have not initialized yet
 logic [31:0] message[20]; //These are the 20 message blocks, each one is 32 bits
-logic [31:0] wt; //Wtf is this? (uninitialized)
+logic [31:0] wt; //Wtf is this (unused for now)
 logic [31:0] h0, h1, h2, h3, h4, h5, h6, h7; //initialized in always_ff block
 logic [31:0] a, b, c, d, e, f, g, h; //initialized in always_ff block
 logic [ 7:0] i, j; //i has been initialized in IDLE, we're using j as the index variable to load different blocks
@@ -28,6 +28,8 @@ logic [15:0] cur_addr; //Initialized in IDLE state
 logic [31:0] cur_write_data; //Unitialized, it's use is understood
 logic [511:0] memory_block; //Not sure how this is to be used (unitialized)
 logic [ 7:0] tstep; //initialized by starter code
+//logic [255:0] sha256_func_output;
+logic [31:0] S1, S0, ch, maj, t1, t2; // added to bypass sha256_op function
 
 // SHA256 K constants
 parameter int k[0:63] = '{
@@ -56,21 +58,23 @@ endfunction
 
 
 // SHA256 hash round
-function logic [255:0] sha256_op(input logic [31:0] a, b, c, d, e, f, g, h, w,
-                                 input logic [7:0] t);
-    logic [31:0] S1, S0, ch, maj, t1, t2; // internal signals
-begin
-    S1 = rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25);
-    // Student to add remaning code below
-    // Refer to SHA256 discussion slides to get logic for this function
-    ch = (e & f) ^ ((~e) & g);
-    t1 = h + S1 + ch + k[tstep] + w[tstep];
-    S0 = rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22);
-    maj = (a & b) ^ (a & c) ^ (b & c);
-    t2 = S0 + maj;
-    sha256_op = {t1 + t2, a, b, c, d + t1, e, f, g};
-end
-endfunction
+//function logic [255:0] sha256_op(input logic [31:0] a, b, c, d, e, f, g, h, w,
+//                                 input logic [7:0] t);
+//    logic [31:0] S1, S0, ch, maj, t1, t2; // internal signals
+//	 logic [255:0] packed_return; //return value
+//begin
+//    S1 = rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25);
+//    // Student to add remaning code below
+//    // Refer to SHA256 discussion slides to get logic for this function
+//    ch = (e & f) ^ ((~e) & g);
+//    t1 = h + S1 + ch + k[tstep] + w[tstep];
+//    S0 = rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22);
+//    maj = (a & b) ^ (a & c) ^ (b & c);
+//    t2 = S0 + maj;
+//    packed_return = {t1 + t2, a, b, c, d + t1, e, f, g};
+//	 return packed_return;
+//end
+//endfunction
 
 
 // Generate request to memory
@@ -130,7 +134,7 @@ begin
 			cur_we <= 0; //Because nothing needs to be written to memory right now (in the idle state)
 			offset <= 0; //Should probably be 0 initially
 			cur_addr <= message_addr; //Because curr_addr should be initialized to 1st message location (address of W0 (We have words from W0 to W15))in memory
-			i <= 0; //Initializing to 0 for now, not sure if this needs to be 0 or 1 or something else
+			i <= 1; //Initializing to 1 because tstep = i - 1 and tstep should start from 0
 			j <= 0; //Don't even know if this will be used
 			state <= READ;
        end
@@ -151,9 +155,7 @@ begin
     BLOCK: begin
 	// Fetch message in 512-bit block size
 	// For each of 512-bit block initiate hash value computation
-		if (j == 0)	memory_block <= {message[0],message[1],message[2],message[3],message[4],message[5],message[6],message[7],message[8],message[9],message[10],message[11],message[12],message[13],message[14],message[15]};
-		else memory_block <= {message[16],message[17],message[18],message[19],1'b1,319'b0,64'd640};
-		h0 <= a;
+	   h0 <= a;
 		h1 <= b;
 		h2 <= c;
 		h3 <= d;
@@ -161,11 +163,19 @@ begin
 		h5 <= f;
 		h6 <= g;
 		h7 <= h;
-		
-		j++;
-		
-		if (j == 2) state <= WRITE;
-		else state <= COMPUTE
+		if (j == 0) begin 
+			memory_block <= {message[15],message[14],message[13],message[12],message[11],message[10],message[9],message[8],message[7],message[6],message[5],message[4],message[3],message[2],message[1],message[0]};
+			j <= j + 1;
+			state <= COMPUTE;
+		end
+		else if (j == 1) begin
+			memory_block <= {64'd640,319'b0,1'b1,message[19],message[18],message[17],message[16]};
+			j <= j + 1;
+			state <= COMPUTE;
+		end
+		else begin //j is equal to 2
+			state <= WRITE;
+		end
     end
 
     // For each block compute hash function
@@ -174,8 +184,86 @@ begin
     // move to WRITE stage
     COMPUTE: begin
 	// 64 processing rounds steps for 512-bit block 
-        if (i <= 64) begin
-        end
+        if (i <= 64) begin //For i values from 1 to 64, this is the word expansion part
+			case (i)
+				1 : begin
+					w[tstep] <= memory_block[31:0];
+				end
+				2 : begin
+					w[tstep] <= memory_block[63:32];
+				end
+				3 : begin
+					w[tstep] <= memory_block[95:64];
+				end
+				4 : begin
+					w[tstep] <= memory_block[127:96];
+				end
+				5 : begin
+					w[tstep] <= memory_block[159:128];
+				end
+				6 : begin
+					w[tstep] <= memory_block[191:160];
+				end
+				7 : begin
+					w[tstep] <= memory_block[223:192];
+				end
+				8 : begin
+					w[tstep] <= memory_block[255:224];
+				end
+				9 : begin
+					w[tstep] <= memory_block[287:256];
+				end
+				10 : begin
+					w[tstep] <= memory_block[319:288];
+				end
+				11 : begin
+					w[tstep] <= memory_block[351:320];
+				end
+				12 : begin
+					w[tstep] <= memory_block[383:352];
+				end
+				13 : begin
+					w[tstep] <= memory_block[415:384];
+				end
+				14 : begin
+					w[tstep] <= memory_block[447:416];
+				end
+				15 : begin
+					w[tstep] <= memory_block[479:448];
+				end
+				16 : begin
+					w[tstep] <= memory_block[511:480];
+				end
+				default : begin //For i = 17 to 64
+					w[tstep] <= w[tstep - 16] + w[tstep - 7] + (rightrotate(w[tstep - 15],7) ^ rightrotate(w[tstep - 15],18) ^ (w[tstep - 15] >> 3)) + (rightrotate(w[tstep - 2],17) ^ rightrotate(w[tstep - 2],19) ^ (w[tstep - 2] >> 10));
+				end
+			endcase
+			i <= i + 1;
+			state <= COMPUTE; //Go back to compute state if i is less than or equal to 64
+		  end
+		  else if(i <= 128) begin //For i values from 65 to 128. this is the sha256_op part
+		   //Start of Section added to bypass sha256_op function
+		   S1 = rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25);
+			ch = (e & f) ^ ((~e) & g);
+			t1 = h + S1 + ch + k[tstep] + w[tstep];
+			S0 = rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22);
+			maj = (a & b) ^ (a & c) ^ (b & c);
+			t2 = S0 + maj;
+			//End of Section added to bypass sha256_op function
+			a <= t1 + t2;
+			b <= a;
+			c <= b;
+			d <= c;
+			e <= d + t1;
+			f <= e;
+			g <= f;
+			h <= g;
+			i <= i + 1;
+			state <= COMPUTE; //Go back to compute if i value is in [65, 128]
+		  end
+		  else begin //For i value 29
+			state <= BLOCK; //Go to BLOCK state if i value is 129
+		  end
     end
 
     // h0 to h7 each are 32 bit hashes, which makes up total 256 bit value
@@ -186,6 +274,7 @@ begin
    endcase
   end
 
+//assign sha256_func_output = sha256_op(a, b, c, d, e, f, g, h, w, tstep);
 // Generate done when SHA256 hash computation has finished and moved to IDLE state
 assign done = (state == IDLE);
 
