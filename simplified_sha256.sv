@@ -20,7 +20,7 @@ logic [31:0] message[20]; //These are the 20 message blocks, each one is 32 bits
 logic [31:0] wt; //Wtf is this (unused for now)
 logic [31:0] h0, h1, h2, h3, h4, h5, h6, h7; //initialized in always_ff block BLOCK state
 logic [31:0] a, b, c, d, e, f, g, h; //initialized in always_ff block IDLE state
-logic [ 7:0] i, j, ind; //i has been initialized in IDLE, we're using j as the index variable to load different blocks, ind is being used in the WRITE state
+logic [ 7:0] i, j, ind, ind2; //i has been initialized in IDLE, we're using j as the index variable to load different blocks, ind is being used in the WRITE state, ind2 is being usd in the READ state
 logic [15:0] offset; // in word address //initialized in IDLE state
 logic [ 7:0] num_blocks; //initialized by determine_num_blocks function
 logic        cur_we; //initialized in IDLE state 
@@ -129,17 +129,23 @@ begin
 			cur_addr <= message_addr; //Because curr_addr should be initialized to 1st message location (address of W0 (We have words from W0 to W15))in memory
 			i <= 1; //Initializing to 1 because tstep = i - 1 and tstep should start from 0
 			j <= 0; //Don't even know if this will be used
+			ind2 <= 0; //Because next state is the READ state
+			offset <= 0; //Because next state is READ state and I need to create a 1 cycle gap
 			state <= READ;
        end
     end
 	 
 	 //Adding a READ state to Read 640 bits message from testbench memory in chunks of 32bits words (i.e. read 20 locations from memory by incrementing address offset)
 	 READ: begin
-		for(int idx = 0; idx < 20; idx++) begin
-			message[idx] <= mem_read_data;
-			offset <= offset + 1; //Could be 32, setting to 1 right now
+      message[ind2] <= mem_read_data;
+		offset <= offset + 1; //To read from next address in memory
+		ind2 <= ind2 + 1;
+		if(ind2 < 20) begin
+			state <= READ;
 		end
-		state <= BLOCK;
+		else begin
+			state <= BLOCK;
+		end
 	 end
 
     // SHA-256 FSM 
