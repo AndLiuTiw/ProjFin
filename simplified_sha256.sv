@@ -243,7 +243,7 @@ begin
 		  end
 		  else if(i <= 128) begin //For i values from 65 to 128. this is the sha256_op part
 		   //Start of Section added to bypass sha256_op function
-		   S1 = rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25);
+		   	S1 = rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25);
 			ch = (e & f) ^ ((~e) & g);
 			t1 = h + S1 + ch + k[tstep] + w[tstep];
 			S0 = rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22);
