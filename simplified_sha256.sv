@@ -249,11 +249,13 @@ begin
 			memory_block <= {message[15],message[14],message[13],message[12],message[11],message[10],message[9],message[8],message[7],message[6],message[5],message[4],message[3],message[2],message[1],message[0]};
 			j <= j + 8'd1;
 			state <= COMPUTE;
+			i <= 1;
 		end
 		else if (j == 1) begin
 			memory_block <= {64'd640,319'b0,1'b1,message[19],message[18],message[17],message[16]};
 			j <= j + 8'd1;
 			state <= COMPUTE;
+			i <= 1;
 		end
 		else begin //j is equal to 2
 			cur_we <= 1; //Because the next state is the WRITE state
