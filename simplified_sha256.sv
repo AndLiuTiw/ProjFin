@@ -74,40 +74,40 @@ logic [ 7:0] tstep; //initialized by starter code
 //assign m19 = message[19];
 ////End of logic added to debug red in message
 
-////Logic added to debug w
-//logic [31:0] w0;
-//logic [31:0] w1;
-//logic [31:0] w2;
-//logic [31:0] w3;
-//logic [31:0] w4;
-//logic [31:0] w5;
-//logic [31:0] w6;
-//logic [31:0] w7;
-//logic [31:0] w8;
-//logic [31:0] w9;
-//logic [31:0] w10;
-//logic [31:0] w11;
-//logic [31:0] w12;
-//logic [31:0] w13;
-//logic [31:0] w14;
-//logic [31:0] w15;
-//assign w0 = w[0];
-//assign w1 = w[1];
-//assign w2 = w[2];
-//assign w3 = w[3];
-//assign w4 = w[4];
-//assign w5 = w[5];
-//assign w6 = w[6];
-//assign w7 = w[7];
-//assign w8 = w[8];
-//assign w9 = w[9];
-//assign w10 = w[10];
-//assign w11 = w[11];
-//assign w12 = w[12];
-//assign w13 = w[13];
-//assign w14 = w[14];
-//assign w15 = w[15];
-////End of logic added to debug w
+//Logic added to debug w
+logic [31:0] w0;
+logic [31:0] w1;
+logic [31:0] w2;
+logic [31:0] w3;
+logic [31:0] w4;
+logic [31:0] w5;
+logic [31:0] w6;
+logic [31:0] w7;
+logic [31:0] w8;
+logic [31:0] w9;
+logic [31:0] w10;
+logic [31:0] w11;
+logic [31:0] w12;
+logic [31:0] w13;
+logic [31:0] w14;
+logic [31:0] w15;
+assign w0 = w[0];
+assign w1 = w[1];
+assign w2 = w[2];
+assign w3 = w[3];
+assign w4 = w[4];
+assign w5 = w[5];
+assign w6 = w[6];
+assign w7 = w[7];
+assign w8 = w[8];
+assign w9 = w[9];
+assign w10 = w[10];
+assign w11 = w[11];
+assign w12 = w[12];
+assign w13 = w[13];
+assign w14 = w[14];
+assign w15 = w[15];
+//End of logic added to debug w
 
 //logic [31:0] debug;
 //assign debug = rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25);
@@ -252,7 +252,7 @@ begin
 			i <= 1;
 		end
 		else if (j == 1) begin
-			memory_block <= {64'd640,319'b0,1'b1,message[19],message[18],message[17],message[16]};
+			memory_block <= {32'd640,320'b0,1'b1,31'b0,message[19],message[18],message[17],message[16]};
 			j <= j + 8'd1;
 			state <= COMPUTE;
 			i <= 1;
