@@ -29,7 +29,50 @@ logic [31:0] cur_write_data; //Unitialized, it's use is understood
 logic [511:0] memory_block; //Not sure how this is to be used (unitialized)
 logic [ 7:0] tstep; //initialized by starter code
 //logic [255:0] sha256_func_output;
-logic [31:0] S1, S0, ch, maj, t1, t2; // added to bypass sha256_op function
+//logic [31:0] S1, S0, ch, maj, t1, t2; // added to bypass sha256_op function
+
+//Logic added to debug
+logic [31:0] m0;
+logic [31:0] m1;
+logic [31:0] m2;
+logic [31:0] m3;
+logic [31:0] m4;
+logic [31:0] m5;
+logic [31:0] m6;
+logic [31:0] m7;
+logic [31:0] m8;
+logic [31:0] m9;
+logic [31:0] m10;
+logic [31:0] m11;
+logic [31:0] m12;
+logic [31:0] m13;
+logic [31:0] m14;
+logic [31:0] m15;
+logic [31:0] m16;
+logic [31:0] m17;
+logic [31:0] m18;
+logic [31:0] m19;
+assign m0 = message[0];
+assign m1 = message[1];
+assign m2 = message[2];
+assign m3 = message[3];
+assign m4 = message[4];
+assign m5 = message[5];
+assign m6 = message[6];
+assign m7 = message[7];
+assign m8 = message[8];
+assign m9 = message[9];
+assign m10 = message[10];
+assign m11 = message[11];
+assign m12 = message[12];
+assign m13 = message[13];
+assign m14 = message[14];
+assign m15 = message[15];
+assign m16 = message[16];
+assign m17 = message[17];
+assign m18 = message[18];
+assign m19 = message[19];
+//End of logic added to debug
 
 // SHA256 K constants
 parameter int k[0:63] = '{
@@ -45,15 +88,15 @@ parameter int k[0:63] = '{
 
 
 assign num_blocks = determine_num_blocks(NUM_OF_WORDS); 
-assign tstep = (i - 1);
+assign tstep = (i - 8'd1);
 
 // Note : Function defined are for reference purpose. Feel free to add more functions or modify below.
 // Function to determine number of blocks in memory to fetch
-function logic [15:0] determine_num_blocks(input logic [31:0] size);
+function logic [7:0] determine_num_blocks(input logic [31:0] size);
 
   // Student to add function implementation
   //According to the part1 document, since num of words is hardcoded to 20, there will be 2 blocks only
-  determine_num_blocks = 2;
+  determine_num_blocks = 8'd2;
 endfunction
 
 
@@ -137,10 +180,12 @@ begin
 	 
 	 //Adding a READ state to Read 640 bits message from testbench memory in chunks of 32bits words (i.e. read 20 locations from memory by incrementing address offset)
 	 READ: begin
-      message[ind2] <= mem_read_data;
-		offset <= offset + 1; //To read from next address in memory
-		ind2 <= ind2 + 1;
-		if(ind2 < 20) begin
+		if(ind2 > 0) begin
+			message[ind2 - 1] <= mem_read_data;
+		end
+		if(ind2 <= 19) begin
+			offset <= offset + 16'd1; //To read from next address in memory
+			ind2 <= ind2 + 8'd1;
 			state <= READ;
 		end
 		else begin
@@ -164,12 +209,12 @@ begin
 		h7 <= h;
 		if (j == 0) begin 
 			memory_block <= {message[15],message[14],message[13],message[12],message[11],message[10],message[9],message[8],message[7],message[6],message[5],message[4],message[3],message[2],message[1],message[0]};
-			j <= j + 1;
+			j <= j + 8'd1;
 			state <= COMPUTE;
 		end
 		else if (j == 1) begin
 			memory_block <= {64'd640,319'b0,1'b1,message[19],message[18],message[17],message[16]};
-			j <= j + 1;
+			j <= j + 8'd1;
 			state <= COMPUTE;
 		end
 		else begin //j is equal to 2
@@ -241,27 +286,27 @@ begin
 					w[tstep] <= w[tstep - 16] + w[tstep - 7] + (rightrotate(w[tstep - 15],7) ^ rightrotate(w[tstep - 15],18) ^ (w[tstep - 15] >> 3)) + (rightrotate(w[tstep - 2],17) ^ rightrotate(w[tstep - 2],19) ^ (w[tstep - 2] >> 10));
 				end
 			endcase
-			i <= i + 1;
+			i <= i + 8'd1;
 			state <= COMPUTE; //Go back to compute state if i is less than or equal to 64
 		  end
 		  else if(i <= 128) begin //For i values from 65 to 128. this is the sha256_op part
-		   //Start of Section added to bypass sha256_op function
-		   S1 = rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25);
-			ch = (e & f) ^ ((~e) & g);
-			t1 = h + S1 + ch + k[tstep] + w[tstep];
-			S0 = rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22);
-			maj = (a & b) ^ (a & c) ^ (b & c);
-			t2 = S0 + maj;
-			//End of Section added to bypass sha256_op function
-			a <= t1 + t2;
+//		   //Start of Section added to bypass sha256_op function
+//		   S1 = rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25);
+//			ch = (e & f) ^ ((~e) & g);
+//			t1 = h + S1 + ch + k[tstep] + w[tstep];
+//			S0 = rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22);
+//			maj = (a & b) ^ (a & c) ^ (b & c);
+//			t2 = S0 + maj;
+//			//End of Section added to bypass sha256_op function
+			a <= h + (rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25)) + ((e & f) ^ ((~e) & g)) + k[tstep] + w[tstep] + (rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
 			b <= a;
 			c <= b;
 			d <= c;
-			e <= d + t1;
+			e <= d + h + (rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25)) + ((e & f) ^ ((~e) & g)) + k[tstep] + w[tstep];
 			f <= e;
 			g <= f;
 			h <= g;
-			i <= i + 1;
+			i <= i + 8'd1;
 			state <= COMPUTE; //Go back to compute if i value is in [65, 128]
 		  end
 		  else begin //For i value 29
@@ -284,55 +329,52 @@ begin
     WRITE: begin
 		case (ind)
 			0 : begin
-				offset <= 0;
+				offset <= 1;
 				cur_write_data <= h0;
-				ind <= ind + 1;
+				ind <= ind + 8'd1;
 				state <= WRITE;
 			end
 			1 : begin
-				offset <= 1;
+				offset <= 2;
 				cur_write_data <= h1;
-				ind <= ind + 1;
+				ind <= ind + 8'd1;
 				state <= WRITE;
 			end
 			2 : begin
-				offset <= 2;
+				offset <= 3;
 				cur_write_data <= h2;
-				ind <= ind + 1;
+				ind <= ind + 8'd1;
 				state <= WRITE;
 			end
 			3 : begin
-				offset <= 3;
+				offset <= 4;
 				cur_write_data <= h3;
-				ind <= ind + 1;
+				ind <= ind + 8'd1;
 				state <= WRITE;
 			end
 			4 : begin
-				offset <= 4;
+				offset <= 5;
 				cur_write_data <= h4;
-				ind <= ind + 1;
+				ind <= ind + 8'd1;
 				state <= WRITE;
 			end
 			5 : begin
-				offset <= 5;
+				offset <= 6;
 				cur_write_data <= h5;
-				ind <= ind + 1;
+				ind <= ind + 8'd1;
 				state <= WRITE;
 			end
 			6 : begin
-				offset <= 6;
+				offset <= 7;
 				cur_write_data <= h6;
-				ind <= ind + 1;
+				ind <= ind + 8'd1;
 				state <= WRITE;
 			end
 			7 : begin
-				offset <= 7;
+				offset <= 0;
 				cur_write_data <= h7;
-				ind <= ind + 1;
-				state <= WRITE;
-			end
-			8 : begin
 				cur_we <= 0; //Because next state is IDLE state
+				ind <= 8'd0;
 				state <= IDLE;
 			end
 		endcase
