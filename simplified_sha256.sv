@@ -257,7 +257,11 @@ begin
 			state <= COMPUTE;
 			i <= 1;
 		end
-		else begin //j is equal to 2
+		else if(j == 2) begin //This is to create a 1 cycle delay so that the right value of h0 can be written
+			j <=  j + 8'd1;
+			state <= BLOCK;
+		end
+		else begin //j is equal to 3
 			cur_we <= 1; //Because the next state is the WRITE state
 			cur_addr <= output_addr; //Because the next state is the WRITE state
 			offset <= 0; //Because the next state is the WRITE state
