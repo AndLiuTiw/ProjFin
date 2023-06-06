@@ -31,48 +31,86 @@ logic [ 7:0] tstep; //initialized by starter code
 //logic [255:0] sha256_func_output;
 //logic [31:0] S1, S0, ch, maj, t1, t2; // added to bypass sha256_op function
 
-//Logic added to debug
-logic [31:0] m0;
-logic [31:0] m1;
-logic [31:0] m2;
-logic [31:0] m3;
-logic [31:0] m4;
-logic [31:0] m5;
-logic [31:0] m6;
-logic [31:0] m7;
-logic [31:0] m8;
-logic [31:0] m9;
-logic [31:0] m10;
-logic [31:0] m11;
-logic [31:0] m12;
-logic [31:0] m13;
-logic [31:0] m14;
-logic [31:0] m15;
-logic [31:0] m16;
-logic [31:0] m17;
-logic [31:0] m18;
-logic [31:0] m19;
-assign m0 = message[0];
-assign m1 = message[1];
-assign m2 = message[2];
-assign m3 = message[3];
-assign m4 = message[4];
-assign m5 = message[5];
-assign m6 = message[6];
-assign m7 = message[7];
-assign m8 = message[8];
-assign m9 = message[9];
-assign m10 = message[10];
-assign m11 = message[11];
-assign m12 = message[12];
-assign m13 = message[13];
-assign m14 = message[14];
-assign m15 = message[15];
-assign m16 = message[16];
-assign m17 = message[17];
-assign m18 = message[18];
-assign m19 = message[19];
-//End of logic added to debug
+////Logic added to debug red in message
+//logic [31:0] m0;
+//logic [31:0] m1;
+//logic [31:0] m2;
+//logic [31:0] m3;
+//logic [31:0] m4;
+//logic [31:0] m5;
+//logic [31:0] m6;
+//logic [31:0] m7;
+//logic [31:0] m8;
+//logic [31:0] m9;
+//logic [31:0] m10;
+//logic [31:0] m11;
+//logic [31:0] m12;
+//logic [31:0] m13;
+//logic [31:0] m14;
+//logic [31:0] m15;
+//logic [31:0] m16;
+//logic [31:0] m17;
+//logic [31:0] m18;
+//logic [31:0] m19;
+//assign m0 = message[0];
+//assign m1 = message[1];
+//assign m2 = message[2];
+//assign m3 = message[3];
+//assign m4 = message[4];
+//assign m5 = message[5];
+//assign m6 = message[6];
+//assign m7 = message[7];
+//assign m8 = message[8];
+//assign m9 = message[9];
+//assign m10 = message[10];
+//assign m11 = message[11];
+//assign m12 = message[12];
+//assign m13 = message[13];
+//assign m14 = message[14];
+//assign m15 = message[15];
+//assign m16 = message[16];
+//assign m17 = message[17];
+//assign m18 = message[18];
+//assign m19 = message[19];
+////End of logic added to debug red in message
+
+////Logic added to debug w
+//logic [31:0] w0;
+//logic [31:0] w1;
+//logic [31:0] w2;
+//logic [31:0] w3;
+//logic [31:0] w4;
+//logic [31:0] w5;
+//logic [31:0] w6;
+//logic [31:0] w7;
+//logic [31:0] w8;
+//logic [31:0] w9;
+//logic [31:0] w10;
+//logic [31:0] w11;
+//logic [31:0] w12;
+//logic [31:0] w13;
+//logic [31:0] w14;
+//logic [31:0] w15;
+//assign w0 = w[0];
+//assign w1 = w[1];
+//assign w2 = w[2];
+//assign w3 = w[3];
+//assign w4 = w[4];
+//assign w5 = w[5];
+//assign w6 = w[6];
+//assign w7 = w[7];
+//assign w8 = w[8];
+//assign w9 = w[9];
+//assign w10 = w[10];
+//assign w11 = w[11];
+//assign w12 = w[12];
+//assign w13 = w[13];
+//assign w14 = w[14];
+//assign w15 = w[15];
+////End of logic added to debug w
+
+//logic [31:0] debug;
+//assign debug = rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25);
 
 // SHA256 K constants
 parameter int k[0:63] = '{
@@ -298,11 +336,11 @@ begin
 //			maj = (a & b) ^ (a & c) ^ (b & c);
 //			t2 = S0 + maj;
 //			//End of Section added to bypass sha256_op function
-			a <= h + (rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25)) + ((e & f) ^ ((~e) & g)) + k[tstep] + w[tstep] + (rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
+			a <= h + (rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25)) + ((e & f) ^ ((~e) & g)) + k[tstep - 8'd64] + w[tstep - 8'd64] + (rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
 			b <= a;
 			c <= b;
 			d <= c;
-			e <= d + h + (rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25)) + ((e & f) ^ ((~e) & g)) + k[tstep] + w[tstep];
+			e <= d + h + (rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25)) + ((e & f) ^ ((~e) & g)) + k[tstep - 8'd64] + w[tstep - 8'd64];
 			f <= e;
 			g <= f;
 			h <= g;
