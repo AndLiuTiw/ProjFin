@@ -260,6 +260,7 @@ begin
 			cur_addr <= output_addr; //Because the next state is the WRITE state
 			offset <= 0; //Because the next state is the WRITE state
 			ind <= 0; //Because the next state is the WRITE state
+			cur_write_data <= h0; //Will be written at next clock edge
 			state <= WRITE;
 		end
     end
@@ -368,49 +369,48 @@ begin
 		case (ind)
 			0 : begin
 				offset <= 1;
-				cur_write_data <= h0;
+				cur_write_data <= h1;
 				ind <= ind + 8'd1;
 				state <= WRITE;
 			end
 			1 : begin
 				offset <= 2;
-				cur_write_data <= h1;
+				cur_write_data <= h2;
 				ind <= ind + 8'd1;
 				state <= WRITE;
 			end
 			2 : begin
 				offset <= 3;
-				cur_write_data <= h2;
+				cur_write_data <= h3;
 				ind <= ind + 8'd1;
 				state <= WRITE;
 			end
 			3 : begin
 				offset <= 4;
-				cur_write_data <= h3;
+				cur_write_data <= h4;
 				ind <= ind + 8'd1;
 				state <= WRITE;
 			end
 			4 : begin
 				offset <= 5;
-				cur_write_data <= h4;
+				cur_write_data <= h5;
 				ind <= ind + 8'd1;
 				state <= WRITE;
 			end
 			5 : begin
 				offset <= 6;
-				cur_write_data <= h5;
+				cur_write_data <= h6;
 				ind <= ind + 8'd1;
 				state <= WRITE;
 			end
 			6 : begin
 				offset <= 7;
-				cur_write_data <= h6;
+				cur_write_data <= h7;
 				ind <= ind + 8'd1;
 				state <= WRITE;
 			end
 			7 : begin
 				offset <= 0;
-				cur_write_data <= h7;
 				cur_we <= 0; //Because next state is IDLE state
 				ind <= 8'd0;
 				state <= IDLE;
