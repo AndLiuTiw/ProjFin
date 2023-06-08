@@ -41,6 +41,8 @@ logic [31:0] w15;
 
 logic [4:0] read_idx; //Index used to read values from memory, goes from 0 to 15;
 
+logic [511:0] memory_blocks[16]; //1 required for each nonce value (only memory_blocks[0] is used for phase 1)
+
 parameter int k[64] = '{
     32'h428a2f98,32'h71374491,32'hb5c0fbcf,32'he9b5dba5,32'h3956c25b,32'h59f111f1,32'h923f82a4,32'hab1c5ed5,
     32'hd807aa98,32'h12835b01,32'h243185be,32'h550c7dc3,32'h72be5d74,32'h80deb1fe,32'h9bdc06a7,32'hc19bf174,
@@ -202,6 +204,7 @@ begin
 					w15 <= mem_read_data;
 					mem_addr <= mem_addr + 1; //because we do not need to go any further, so in preparation for phase 2, set it to this even though the exact same thing is done in IDLE state for phase 2 as well
 					read_idx <= 0; //In preparation for phase 2
+					state <= BLOCK; //Because last read has been performed from memory, so move to block state
 				end
 			endcase
 		end
@@ -213,10 +216,28 @@ begin
 		end
 	end
 	BLOCK: begin
+		if(phase == ONE) begin
+			memory_blocks[0] <= {w15, w14, w13, w12, w11, w10, w9, w8, w7[0], w6[0], w5[0], w4[0], w3[0], w2[0], w1[0], w0[0]};
+			state <= COMPUTE;
+		end
+		else if(phase == TWO) begin
+		end
+		else if(phase == THREE) begin
+		end
+		else if (phase == DONE) begin
+		end
 	end
 	COMPUTE: begin
+		if(phase == ONE) begin
+		end
+		else if(phase == TWO) begin
+		end
+		else if(phase == THREE) begin
+		end
+		else if(phase == DONE) begin
+		end
 	end
-	WRITE: begin
+	WRITE: begin //We only come to write in phase DONE so no need to check for phase
 	end
   endcase
 end
