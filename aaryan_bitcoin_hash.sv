@@ -11,6 +11,8 @@ parameter num_nonces = 16;
 enum logic [2:0] {IDLE, READ, BLOCK, COMPUTE, WRITE} state;
 //Phase variable (to indicate which phase of computation is underway)
 enum logic [1:0] {ONE, TWO, THREE, DONE} phase;
+//Compute_sub states to increase speed
+logic [5:0] compute_sub_state;
 
 //logic [ 4:0] state; //Was given in starter code, commented out by me
 logic [31:0] hout[num_nonces];
@@ -18,6 +20,8 @@ logic [31:0] hout[num_nonces];
 //Instead of h0 to h7 like in part 1, I am using H[i] as hash value in part 2
 logic [31:0] H[128]; 
 logic [31:0] a, b, c, d, e, f, g, h;
+
+logic [31:0] message[20]; //These are the 20 message blocks, each one is 32 bits
 
 //Array because 1 required for each nonce for one or more phases
 logic [31:0] w0[16];
@@ -39,7 +43,9 @@ logic [31:0] w13;
 logic [31:0] w14;
 logic [31:0] w15;
 
-logic [4:0] read_idx; //Index used to read values from memory, goes from 0 to 15;
+logic [5:0] read_idx; //Index used to read values from memory, goes from 0 to 19;
+
+logic [511:0] memory_blocks[16]; //1 required for each nonce value (only memory_blocks[0] is used for phase 1)
 
 parameter int k[64] = '{
     32'h428a2f98,32'h71374491,32'hb5c0fbcf,32'he9b5dba5,32'h3956c25b,32'h59f111f1,32'h923f82a4,32'hab1c5ed5,
@@ -84,126 +90,27 @@ begin
 				read_idx <= 0; //Because we need to fill from w0 to w15
 			end
 			else if (phase == TWO) begin
-				//The output hash of phase one at the end of computation will be stored in H[0] to H[7], this needs to be spread to the other H indices
-				for(int i = 8; i < 128; i++) begin
-					H[i] <= H[i % 8]; //Because for all 16 nonces, hash values are same
-				end
-				state <= READ;
-				mem_we <= 1'b0; //Nothing to write when going to next state
-				mem_addr <= message_addr + 16'd16; //Because we will be reading 17th to 20th word right now (17th word is at message_addr + 16)
-				read_idx <= 0; //Because we need to fill from w0 to w15
 			end
 			else if (phase == THREE) begin
-				//Input hashes are same as in phase 1, except we need to do it for each of the 16 nonces
-				//IMP NOTE: The below statements change hash values and so the output of phase 2 is NOT RETAINED, therefore, it must be ensured that those values are stored somewhere before progressing to this stage
-				for(int i = 0; i < 8; i++) begin
-					H[i*8] <= 32'h6a09e667;
-					H[i*8 + 1] <= 32'hbb67ae85;
-					H[i*8 + 2] <= 32'h3c6ef372;
-					H[i*8 + 3] <= 32'ha54ff53a;
-					H[i*8 + 4] <= 32'h510e527f;
-					H[i*8 + 5] <= 32'h9b05688c;
-					H[i*8 + 6] <= 32'h1f83d9ab;
-					H[i*8 + 7] <= 32'h5be0cd19;
-					state <= READ;
-					mem_we <= 1'b0; //Nothing to write when going to next state
-					mem_addr <= message_addr; //Because we will be reading first (don't really care about this because we are not reading from memory for phase three)
-					read_idx <= 0; //Because we need to start filling from w0 to w15
-				end
 			end
 			else if (phase == DONE) begin
-				//H[0], H[8], H[16], ... , H[112], H[120] contain the hash values to be written to memory
-				state <= WRITE; //Now, we need to write these 16 hashes to memory
-				mem_we <= 1'b1; //Because next state is WRITE
-				mem_addr <= output_addr; //Because next state is WRITE
-				mem_write_data <= H[0]; //H[0] is the first hash to be written to memory
 			end
 		end
 	end
-	READ: begin
+	READ: begin //READ is performed only once, so no need to check phase
+		case (read_idx)
+			20: begin
+				state <= BLOCK;
+			end
+			default: begin
+			end
+		endcase
+	end
+	BLOCK: begin
 		if(phase == ONE) begin
-			case (read_idx)
-				0: begin
-					w0[0] <= mem_read_data;
-					mem_addr <= mem_addr + 1;
-					read_idx <= read_idx + 1;
-				end
-				1: begin
-					w1[0] <= mem_read_data;
-					mem_addr <= mem_addr + 1;
-					read_idx <= read_idx + 1;
-				end
-				2: begin
-					w2[0] <= mem_read_data;
-					mem_addr <= mem_addr + 1;
-					read_idx <= read_idx + 1;
-				end
-				3: begin
-					w3[0] <= mem_read_data;
-					mem_addr <= mem_addr + 1;
-					read_idx <= read_idx + 1;
-				end
-				4: begin
-					w4[0] <= mem_read_data;
-					mem_addr <= mem_addr + 1;
-					read_idx <= read_idx + 1;
-				end
-				5: begin
-					w5[0] <= mem_read_data;
-					mem_addr <= mem_addr + 1;
-					read_idx <= read_idx + 1;
-				end
-				6: begin
-					w6[0] <= mem_read_data;
-					mem_addr <= mem_addr + 1;
-					read_idx <= read_idx + 1;
-				end
-				7: begin
-					w7[0] <= mem_read_data;
-					mem_addr <= mem_addr + 1;
-					read_idx <= read_idx + 1;
-				end
-				8: begin
-					w8 <= mem_read_data;
-					mem_addr <= mem_addr + 1;
-					read_idx <= read_idx + 1;
-				end
-				9: begin
-					w9 <= mem_read_data;
-					mem_addr <= mem_addr + 1;
-					read_idx <= read_idx + 1;
-				end
-				10: begin
-					w10 <= mem_read_data;
-					mem_addr <= mem_addr + 1;
-					read_idx <= read_idx + 1;
-				end
-			   11: begin
-					w11 <= mem_read_data;
-					mem_addr <= mem_addr + 1;
-					read_idx <= read_idx + 1;
-				end
-				12: begin
-					w12 <= mem_read_data;
-					mem_addr <= mem_addr + 1;
-					read_idx <= read_idx + 1;
-				end
-				13: begin
-					w13 <= mem_read_data;
-					mem_addr <= mem_addr + 1;
-					read_idx <= read_idx + 1;
-				end
-				14: begin
-					w14 <= mem_read_data;
-					mem_addr <= mem_addr + 1;
-					read_idx <= read_idx + 1;
-				end
-				15: begin
-					w15 <= mem_read_data;
-					mem_addr <= mem_addr + 1; //because we do not need to go any further, so in preparation for phase 2, set it to this even though the exact same thing is done in IDLE state for phase 2 as well
-					read_idx <= 0; //In preparation for phase 2
-				end
-			endcase
+			memory_blocks[0] <= {w15, w14, w13, w12, w11, w10, w9, w8, w7[0], w6[0], w5[0], w4[0], w3[0], w2[0], w1[0], w0[0]};
+			state <= COMPUTE;
+			compute_sub_state <= 0; //Because in this state, we need to set values from 
 		end
 		else if(phase == TWO) begin
 		end
@@ -212,11 +119,21 @@ begin
 		else if (phase == DONE) begin
 		end
 	end
-	BLOCK: begin
-	end
 	COMPUTE: begin
+		if(phase == ONE) begin
+			case (compute_sub_state)
+				0: begin
+				end
+			endcase
+		end
+		else if(phase == TWO) begin
+		end
+		else if(phase == THREE) begin
+		end
+		else if(phase == DONE) begin
+		end
 	end
-	WRITE: begin
+	WRITE: begin //We only come to write in phase DONE so no need to check for phase
 	end
   endcase
 end
