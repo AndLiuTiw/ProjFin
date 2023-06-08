@@ -152,7 +152,7 @@ begin
 			h6 <= g;
 			h7 <= h;
 			memory_block <= {message[15],message[14],message[13],message[12],message[11],message[10],message[9],message[8],message[7],message[6],message[5],message[4],message[3],message[2],message[1],message[0]};
-			j <= j + 8'd1;
+			j <= j + 8'd1; //Fix this later (iterating j might be a problem)
 			state <= COMPUTE;
 			i <= 1;
 		end
@@ -168,18 +168,9 @@ begin
 			memory_block <= {{10{32'h00000000}},32'h80000000,nonce,message[18],message[17],message[16]};
 			state <= COMPUTE;
 			i <= 1;
-      		end
+      end
 		else if (j < 17 && flag == 1) begin
-
-			h0 <= a;
-			h1 <= b;
-			h2 <= c;
-			h3 <= d;
-			h4 <= e;
-			h5 <= f;
-			h6 <= g;
-			h7 <= h;
-            memory_block <= {32'd256,{6{32'h00000000}},32'h80000000,h7,h6,h5,h4,h3,h2,h1,h0};
+         memory_block <= {32'd256,{6{32'h00000000}},32'h80000000,h, g, f, e, d, c, b, a};
 			h0 <= h_init0;
 			h1 <= h_init1;
 			h2 <= h_init2;
@@ -200,10 +191,11 @@ begin
 		end
 		else begin //j is equal to 3
 			cur_we <= 1; //Because the next state is the WRITE state
-			cur_addr <= output_addr+nonce; //Because the next state is the WRITE state
+			cur_addr <= output_addr; //Because the next state is the WRITE state
 			offset <= 0; //Because the next state is the WRITE state
 			ind <= 0; //Because the next state is the WRITE state
 			cur_write_data <= h_array[nonce]; //Will be written at next clock edge
+			nonce <= nonce + 32'd1;
 			state <= WRITE;
 		end
     end
@@ -281,25 +273,27 @@ begin
 			g <= f;
 			h <= g;
 			i <= i + 8'd1;
-			
 			state <= COMPUTE; //Go back to compute if i value is in [65, 128]
 		  end
-		  else begin //For i value 29
+		  else if (i == 129) begin //For i value 129
 		   //a through h are going to be used again BLOCK state to initialize h0 to h7
-//		   	a <= a + h0;
-//			b <= b + h1;
-//			c <= c + h2;
-//			d <= d + h3;
-//			e <= e + h4;
-//			f <= f + h5;
-//			g <= g + h6;
-//			h <= h + h7;
+		   a <= a + h0;
+			b <= b + h1;
+			c <= c + h2;
+			d <= d + h3;
+			e <= e + h4;
+			f <= f + h5;
+			g <= g + h6;
+			h <= h + h7;
+			i <= i + 1;
+			state <= COMPUTE;
+		  end
+		  else begin
 			if(flag == 1) begin
 				h_array[nonce] <= a;
 				flag <= 0;
-			end
-		
-			if (j > 0 && j < 17 && flag == 0) begin
+		   end
+			else if (j > 0 && j < 17 && flag == 0) begin
 				h_two0 <= a;
 				h_two1 <= b;
 				h_two2 <= c;
@@ -309,9 +303,8 @@ begin
 				h_two6 <= g;
 				h_two7 <= h;
 				flag <= 1;
-				end
-			
-			state <= BLOCK; //Go to BLOCK state if i value is 129
+			end
+			state <= BLOCK; //Go to BLOCK state if i value is 130
 		  end
     end
 
@@ -322,12 +315,14 @@ begin
 		if (nonce < 16) begin
 			cur_write_data <= h_array[nonce];
 			nonce <= nonce + 32'd1;
+			offset <= offset + 16'd1;
 			state <= WRITE;
 		end
 		else  begin
 			cur_we <= 0; //Because next state is IDLE state
 			nonce <= 32'd0;
 			state <= IDLE;
+			offset <= 0;
 		end
 	end
 endcase
