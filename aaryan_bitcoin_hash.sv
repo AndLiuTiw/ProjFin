@@ -39,6 +39,8 @@ logic [31:0] w13;
 logic [31:0] w14;
 logic [31:0] w15;
 
+logic [4:0] read_idx; //Index used to read values from memory, goes from 0 to 15;
+
 parameter int k[64] = '{
     32'h428a2f98,32'h71374491,32'hb5c0fbcf,32'he9b5dba5,32'h3956c25b,32'h59f111f1,32'h923f82a4,32'hab1c5ed5,
     32'hd807aa98,32'h12835b01,32'h243185be,32'h550c7dc3,32'h72be5d74,32'h80deb1fe,32'h9bdc06a7,32'hc19bf174,
@@ -61,6 +63,7 @@ begin
     state <= IDLE; //The first state to go to
 	 phase <= ONE; //Always start at phase 1
 	 mem_addr <= message_addr; //Because we will be reading first 
+	 read_idx <= 0; //0 is obviously the reset value
   end 
   else case (state)
 	IDLE: begin
@@ -78,6 +81,7 @@ begin
 				state <= READ;
 				mem_we <= 1'b0; //Nothing to write when going to next state
 				mem_addr <= message_addr; //Because we will be reading first
+				read_idx <= 0; //Because we need to fill from w0 to w15
 			end
 			else if (phase == TWO) begin
 				//The output hash of phase one at the end of computation will be stored in H[0] to H[7], this needs to be spread to the other H indices
@@ -86,7 +90,8 @@ begin
 				end
 				state <= READ;
 				mem_we <= 1'b0; //Nothing to write when going to next state
-				mem_addr <= message_addr; //Because we will be reading first
+				mem_addr <= message_addr + 16'd16; //Because we will be reading 17th to 20th word right now (17th word is at message_addr + 16)
+				read_idx <= 0; //Because we need to fill from w0 to w15
 			end
 			else if (phase == THREE) begin
 				//Input hashes are same as in phase 1, except we need to do it for each of the 16 nonces
@@ -102,7 +107,8 @@ begin
 					H[i*8 + 7] <= 32'h5be0cd19;
 					state <= READ;
 					mem_we <= 1'b0; //Nothing to write when going to next state
-					mem_addr <= message_addr; //Because we will be reading first
+					mem_addr <= message_addr; //Because we will be reading first (don't really care about this because we are not reading from memory for phase three)
+					read_idx <= 0; //Because we need to start filling from w0 to w15
 				end
 			end
 			else if (phase == DONE) begin
@@ -116,6 +122,88 @@ begin
 	end
 	READ: begin
 		if(phase == ONE) begin
+			case (read_idx)
+				0: begin
+					w0[0] <= mem_read_data;
+					mem_addr <= mem_addr + 1;
+					read_idx <= read_idx + 1;
+				end
+				1: begin
+					w1[0] <= mem_read_data;
+					mem_addr <= mem_addr + 1;
+					read_idx <= read_idx + 1;
+				end
+				2: begin
+					w2[0] <= mem_read_data;
+					mem_addr <= mem_addr + 1;
+					read_idx <= read_idx + 1;
+				end
+				3: begin
+					w3[0] <= mem_read_data;
+					mem_addr <= mem_addr + 1;
+					read_idx <= read_idx + 1;
+				end
+				4: begin
+					w4[0] <= mem_read_data;
+					mem_addr <= mem_addr + 1;
+					read_idx <= read_idx + 1;
+				end
+				5: begin
+					w5[0] <= mem_read_data;
+					mem_addr <= mem_addr + 1;
+					read_idx <= read_idx + 1;
+				end
+				6: begin
+					w6[0] <= mem_read_data;
+					mem_addr <= mem_addr + 1;
+					read_idx <= read_idx + 1;
+				end
+				7: begin
+					w7[0] <= mem_read_data;
+					mem_addr <= mem_addr + 1;
+					read_idx <= read_idx + 1;
+				end
+				8: begin
+					w8 <= mem_read_data;
+					mem_addr <= mem_addr + 1;
+					read_idx <= read_idx + 1;
+				end
+				9: begin
+					w9 <= mem_read_data;
+					mem_addr <= mem_addr + 1;
+					read_idx <= read_idx + 1;
+				end
+				10: begin
+					w10 <= mem_read_data;
+					mem_addr <= mem_addr + 1;
+					read_idx <= read_idx + 1;
+				end
+			   11: begin
+					w11 <= mem_read_data;
+					mem_addr <= mem_addr + 1;
+					read_idx <= read_idx + 1;
+				end
+				12: begin
+					w12 <= mem_read_data;
+					mem_addr <= mem_addr + 1;
+					read_idx <= read_idx + 1;
+				end
+				13: begin
+					w13 <= mem_read_data;
+					mem_addr <= mem_addr + 1;
+					read_idx <= read_idx + 1;
+				end
+				14: begin
+					w14 <= mem_read_data;
+					mem_addr <= mem_addr + 1;
+					read_idx <= read_idx + 1;
+				end
+				15: begin
+					w15 <= mem_read_data;
+					mem_addr <= mem_addr + 1; //because we do not need to go any further, so in preparation for phase 2, set it to this even though the exact same thing is done in IDLE state for phase 2 as well
+					read_idx <= 0; //In preparation for phase 2
+				end
+			endcase
 		end
 		else if(phase == TWO) begin
 		end
@@ -132,5 +220,4 @@ begin
 	end
   endcase
 end
-
 endmodule
