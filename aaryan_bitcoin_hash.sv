@@ -18,30 +18,13 @@ logic [5:0] compute_sub_state;
 logic [31:0] hout[num_nonces];
 
 //Instead of h0 to h7 like in part 1, I am using H[i] as hash value in part 2
-logic [31:0] H[128]; 
+logic [31:0] H[16][8]; //16 because one for each nonce, 8 because H0 to H7 requird for each computation, only H[0] is used for phase one 
 logic [31:0] a, b, c, d, e, f, g, h;
 
-logic [31:0] message[20]; //These are the 20 message blocks, each one is 32 bits
+logic [31:0] message[16][20]; //These are the 20 message blocks, each one is 32 bits, 1 required for each nonce, message[0] i sused for phase one
 
 //Array because 1 required for each nonce for one or more phases
-logic [31:0] w0[16];
-logic [31:0] w1[16];
-logic [31:0] w2[16];
-logic [31:0] w3[16];
-logic [31:0] w4[16];
-logic [31:0] w5[16];
-logic [31:0] w6[16];
-logic [31:0] w7[16];
-
-//Not an array because only one required for all phases
-logic [31:0] w8;
-logic [31:0] w9;
-logic [31:0] w10;
-logic [31:0] w11;
-logic [31:0] w12;
-logic [31:0] w13;
-logic [31:0] w14;
-logic [31:0] w15;
+logic [31:0] w[16][64]; //16 because one for each nonce, 64 because 64 words are required in word expansion, only w[0] is used for phase one
 
 logic [5:0] read_idx; //Index used to read values from memory, goes from 0 to 19;
 
@@ -61,6 +44,12 @@ parameter int k[64] = '{
 assign mem_clk = clk; //Both clocks are concurrent
 assign done = (phase == DONE); //Computation is complete when phase is DONE
 
+//rightrotate function definition
+function logic [31:0] rightrotate(input logic [31:0] x,
+                                  input logic [ 7:0] r);
+   rightrotate = (x >> r) | (x << (32 - r));
+endfunction
+
 // Student to add rest of the code here
 always_ff @(posedge clk, negedge reset_n)
 begin
@@ -76,14 +65,14 @@ begin
 		if (start) begin
 			//initialized to initial hash values
 			if (phase == ONE) begin
-				H[0] <= 32'h6a09e667; 
-				H[1] <= 32'hbb67ae85;
-				H[2] <= 32'h3c6ef372;
-				H[3] <= 32'ha54ff53a;
-				H[4] <= 32'h510e527f;
-				H[5] <= 32'h9b05688c;
-				H[6] <= 32'h1f83d9ab;
-				H[7] <= 32'h5be0cd19;
+				H[0][0] <= 32'h6a09e667; 
+				H[0][1] <= 32'hbb67ae85;
+				H[0][2] <= 32'h3c6ef372;
+				H[0][3] <= 32'ha54ff53a;
+				H[0][4] <= 32'h510e527f;
+				H[0][5] <= 32'h9b05688c;
+				H[0][6] <= 32'h1f83d9ab;
+				H[0][7] <= 32'h5be0cd19;
 				state <= READ;
 				mem_we <= 1'b0; //Nothing to write when going to next state
 				mem_addr <= message_addr; //Because we will be reading first
@@ -98,17 +87,22 @@ begin
 		end
 	end
 	READ: begin //READ is performed only once, so no need to check phase
-		case (read_idx)
-			20: begin
-				state <= BLOCK;
-			end
-			default: begin
-			end
-		endcase
+		if(read_idx > 0) begin
+			message[0][read_idx - 1] <= mem_read_data;
+		end
+		if(read_idx <= 19) begin
+			mem_addr <= mem_addr + 16'd1; //To read from next address in memory
+			read_idx <= read_idx + 8'd1;
+			state <= READ;
+		end
+		else begin
+			read_idx <= 0; //Reset it for the future
+			state <= BLOCK;
+		end
 	end
 	BLOCK: begin
 		if(phase == ONE) begin
-			memory_blocks[0] <= {w15, w14, w13, w12, w11, w10, w9, w8, w7[0], w6[0], w5[0], w4[0], w3[0], w2[0], w1[0], w0[0]};
+			memory_blocks[0] <= {message[0][15],message[0][14],message[0][13],message[0][12],message[0][11],message[0][10],message[0][9],message[0][8],message[0][7],message[0][6],message[0][5],message[0][4],message[0][3],message[0][2],message[0][1],message[0][0]};
 			state <= COMPUTE;
 			compute_sub_state <= 0; //Because in this state, we need to set values from 
 		end
@@ -121,10 +115,39 @@ begin
 	end
 	COMPUTE: begin
 		if(phase == ONE) begin
-			case (compute_sub_state)
-				0: begin
-				end
-			endcase
+			if(compute_sub_state < 25) begin //Because the last two words, w[0][62] and w[0][63] are calculated when compute_state = 24
+				case (compute_sub_state)
+					0: begin
+						//All of these can be set in parallel
+						w[0][0] <= memory_blocks[0][31:0];
+						w[0][1] <= memory_blocks[0][63:32];
+						w[0][2] <= memory_blocks[0][95:64];
+						w[0][3] <= memory_blocks[0][127:96];
+						w[0][4] <= memory_blocks[0][159:128];
+						w[0][5] <= memory_blocks[0][191:160];
+						w[0][6] <= memory_blocks[0][223:192];
+						w[0][7] <= memory_blocks[0][255:224];
+						w[0][8] <= memory_blocks[0][287:256];
+						w[0][9] <= memory_blocks[0][319:288];
+						w[0][10] <= memory_blocks[0][351:320];
+						w[0][11] <= memory_blocks[0][383:352];
+						w[0][12] <= memory_blocks[0][415:384];
+						w[0][13] <= memory_blocks[0][447:416];
+						w[0][14] <= memory_blocks[0][479:448];
+						w[0][15] <= memory_blocks[0][511:480];
+						compute_sub_state <= compute_sub_state + 6'b1;
+						state <= COMPUTE;
+					end
+					default: begin //two word computations can be parallelized because w[idx] is required to be known for computation of w[idx + 2]
+						w[0][2*compute_sub_state + 6'd14] <= w[0][2*compute_sub_state - 6'd2] + w[0][2*compute_sub_state + 6'd7] + (rightrotate(w[0][2*compute_sub_state - 6'd1],7) ^ rightrotate(w[0][2*compute_sub_state - 6'd1],18) ^ (w[0][2*compute_sub_state - 6'd1] >> 3)) + (rightrotate(w[0][2*compute_sub_state + 6'd12],17) ^ rightrotate(w[0][2*compute_sub_state + 6'd12],19) ^ (w[0][2*compute_sub_state + 6'd12] >> 10));
+						w[0][2*compute_sub_state + 6'd15] <= w[0][2*compute_sub_state - 6'd1] + w[0][2*compute_sub_state + 6'd8] + (rightrotate(w[0][2*compute_sub_state],7) ^ rightrotate(w[0][2*compute_sub_state],18) ^ (w[0][2*compute_sub_state] >> 3)) + (rightrotate(w[0][2*compute_sub_state + 6'd13],17) ^ rightrotate(w[0][2*compute_sub_state + 6'd13],19) ^ (w[0][2*compute_sub_state + 6'd13] >> 10));
+						compute_sub_state <= compute_sub_state + 6'b1;
+						state <= COMPUTE;
+					end
+				endcase
+			end
+			else begin //For compute_sub_state >= 25 and < ..., we peform sha256_op 64 times
+			end
 		end
 		else if(phase == TWO) begin
 		end
