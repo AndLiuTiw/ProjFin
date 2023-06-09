@@ -28,6 +28,8 @@ logic [31:0] w[16][64]; //16 because one for each nonce, 64 because 64 words are
 
 logic [5:0] read_idx; //Index used to read values from memory, goes from 0 to 19;
 
+logic [3:0] write_idx; //Index used to write values to memory in WRITE state. goes from 0 to 15;
+
 logic [511:0] memory_blocks[16]; //1 required for each nonce value (only memory_blocks[0] is used for phase 1)
 
 parameter int k[64] = '{
@@ -326,7 +328,7 @@ begin
 				state <= COMPUTE;
 				compute_sub_state <= compute_sub_state + 7'd1;
 			end
-			else begin //compute_sub_state = 88 is used to store final hashes for each nonce into h0 through h7 and prepare to enter write state 
+			else if (compute_sub_state == 88) begin //compute_sub_state = 88 is used to store final hashes for each nonce into h0 through h7 and prepare to enter write state 
 				for(int idx = 0; idx < 16; idx++) begin
 					H[idx][0] <= H[idx][0] + a[idx];
 					H[idx][1] <= H[idx][1] + b[idx];
@@ -337,12 +339,54 @@ begin
 					H[idx][6] <= H[idx][6] + g[idx];
 					H[idx][7] <= H[idx][7] + h[idx];
 				end
-				state <= WRITE; //Next state is the write state
+				state <= COMPUTE; //Next state is the write state
+				compute_sub_state <= compute_sub_state + 7'd1;
+			end
+			else begin //compute_sub_state = 89 is used to create a one cycle delay so that all final hash values can be written
 				compute_sub_state <= 0; //For the future
+				state <= WRITE;
+				mem_addr <= output_addr;
+				mem_we <= 1'b1;
+				mem_write_data <= H[0][0]; //0th hash of nonce 0 is written at output_addr
+				write_idx <= 0;
 			end
 		end
 	end
 	WRITE: begin //We only come to write in phase DONE so no need to check for phase
+		case (write_idx)
+			0: begin
+			end
+			1: begin
+			end
+			2: begin
+			end
+			3: begin
+			end
+			4: begin
+			end
+			5: begin
+			end
+			6: begin
+			end
+			7: begin
+			end
+			8: begin
+			end
+			9: begin
+			end
+			10: begin
+			end
+			11: begin
+			end
+			12: begin
+			end
+			13: begin
+			end
+			14: begin
+			end
+			15: begin
+			end
+		endcase
 	end
   endcase
 end
