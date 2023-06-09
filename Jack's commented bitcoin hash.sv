@@ -8,9 +8,9 @@ module bitcoin_hash (input logic        clk, reset_n, start,
 parameter num_nonces = 16;
 
 // FSM state variables 
-enum logic [2:0] {IDLE, READ, BLOCK, COMPUTE, WRITE} state;
+enum logic [3:0] {IDLE, READ, BLOCK, COMPUTE, WRITE, DONE} state;
 //Phase variable (to indicate which phase of computation is underway)
-enum logic [1:0] {ONE, TWO, THREE, DONE} phase;
+enum logic [1:0] {ONE, TWO, THREE} phase;
 
 //logic [ 4:0] state; //Was given in starter code, commented out by me
 logic [31:0] hout[num_nonces];
@@ -21,28 +21,38 @@ logic [31:0] Hout [15:0]; 			//place to store H[0] from each nonce
 logic [31:0] nonce ;
 logic [31:0] a, b, c, d, e, f, g, h;		
 logic [31:0] aa, bb, cc, dd, ee, ff, gg, hh;	//stored output hashses from phase 2 to be used as inputs to phase 3
-
+logic [31:0] message[20]; //These are the 20 message blocks, each one is 32 bits
 logic [511:0] memory_block;
+logic [7:0] i;
+logic [31:0] w[64]; //To be used in word expansion and sha operation steps, have not initialized yet
+logic [ 7:0] tstep; //initialized by starter code
+logic [31:0] h0, h1, h2, h3, h4, h5, h6, h7; //initialized in always_ff block BLOCK state
+
+logic        cur_we; //initialized in IDLE state 
+logic [15:0] cur_addr; //Initialized in IDLE state
+logic [31:0] cur_write_data; //Unitialized, it's use is understood
+
+assign tstep = (i - 8'd1);
 
 //Array because 1 required for each nonce for one or more phases
-logic [31:0] w0[16];
-logic [31:0] w1[16];
-logic [31:0] w2[16];
-logic [31:0] w3[16];
-logic [31:0] w4[16];
-logic [31:0] w5[16];
-logic [31:0] w6[16];
-logic [31:0] w7[16];
-
-//Not an array because only one required for all phases
-logic [31:0] w8;
-logic [31:0] w9;
-logic [31:0] w10;
-logic [31:0] w11;
-logic [31:0] w12;
-logic [31:0] w13;
-logic [31:0] w14;
-logic [31:0] w15;
+//logic [31:0] w0[16];
+//logic [31:0] w1[16];
+//logic [31:0] w2[16];
+//logic [31:0] w3[16];
+//logic [31:0] w4[16];
+//logic [31:0] w5[16];
+//logic [31:0] w6[16];
+//logic [31:0] w7[16];
+//
+////Not an array because only one required for all phases
+//logic [31:0] w8;
+//logic [31:0] w9;
+//logic [31:0] w10;
+//logic [31:0] w11;
+//logic [31:0] w12;
+//logic [31:0] w13;
+//logic [31:0] w14;
+//logic [31:0] w15;
 
 
 logic [4:0] read_idx; //Index used to read values from memory, goes from 0 to 15;
@@ -60,6 +70,21 @@ parameter int k[64] = '{
 
 assign mem_clk = clk; //Both clocks are concurrent
 assign done = (phase == DONE); //Computation is complete when phase is DONE
+
+
+// Right Rotation Example : right rotate input x by r
+// Lets say input x = 1111 ffff 2222 3333 4444 6666 7777 8888
+// lets say r = 4
+// x >> r  will result in : 0000 1111 ffff 2222 3333 4444 6666 7777 
+// x << (32-r) will result in : 8888 0000 0000 0000 0000 0000 0000 0000
+// final right rotate expression is = (x >> r) | (x << (32-r));
+// (0000 1111 ffff 2222 3333 4444 6666 7777) | (8888 0000 0000 0000 0000 0000 0000 0000)
+// final value after right rotate = 8888 1111 ffff 2222 3333 4444 6666 7777
+// Right rotation function
+function logic [31:0] rightrotate(input logic [31:0] x,
+                                  input logic [ 7:0] r);
+   rightrotate = (x >> r) | (x << (32 - r));
+endfunction
 
 // Student to add rest of the code here
 always_ff @(posedge clk, negedge reset_n)
@@ -115,20 +140,18 @@ begin
 			else if (phase == THREE) begin
 				//Input hashes are same as in phase 1, except we need to do it for each of the 16 nonces
 				//IMP NOTE: The below statements change hash values and so the output of phase 2 is NOT RETAINED, therefore, it must be ensured that those values are stored somewhere before progressing to this stage
-				
-					H[0] <= 32'h6a09e667; 
-					H[1] <= 32'hbb67ae85;
-					H[2] <= 32'h3c6ef372;
-					H[3] <= 32'ha54ff53a;
-					H[4] <= 32'h510e527f;
-					H[5] <= 32'h9b05688c;
-					H[6] <= 32'h1f83d9ab;
-					H[7] <= 32'h5be0cd19;
-					state <= READ;
-					mem_we <= 1'b0; //Nothing to write when going to next state
-					mem_addr <= message_addr; //Because we will be reading first (don't really care about this because we are not reading from memory for phase three)
-					read_idx <= 0; //Because we need to start filling from w0 to w15
-				end
+				H[0] <= 32'h6a09e667; 
+				H[1] <= 32'hbb67ae85;
+				H[2] <= 32'h3c6ef372;
+				H[3] <= 32'ha54ff53a;
+				H[4] <= 32'h510e527f;
+				H[5] <= 32'h9b05688c;
+				H[6] <= 32'h1f83d9ab;
+				H[7] <= 32'h5be0cd19;
+				state <= READ;
+				mem_we <= 1'b0; //Nothing to write when going to next state
+				mem_addr <= message_addr; //Because we will be reading first (don't really care about this because we are not reading from memory for phase three)
+				read_idx <= 0; //Because we need to start filling from w0 to w15
 			end
 			else if (phase == DONE) begin
 				//H[0], H[8], H[16], ... , H[112], H[120] contain the hash values to be written to memory
@@ -254,13 +277,13 @@ begin
 	end
 	BLOCK: begin
 		if(phase == ONE) begin		//Initial Hashs for hashes && 1st 16 words of message
-			memory_block <= message[15:0];
+			memory_block <= {message[15],message[14],message[13],message[12],message[11],message[10],message[9],message[8],message[7],message[6],message[5],message[4],message[3],message[2],message[1],message[0]};
 			i <= 1;
 			state <= COMPUTE;
 		end
 		else if(phase == TWO) begin	//Hashs from Phase 1 for hashes && last 3 words of message && padding and nonce-ing	 
 					
-			memory_block <= {32'd640,{10{32'h00000000}},32'h80000000,nonce,message[18:16]};
+			memory_block <= {32'd640,{10{32'h00000000}},32'h80000000,nonce,message[18], message[17], message[16]};
 			i <= 1;
 			state <= COMPUTE;
 		end
@@ -270,9 +293,8 @@ begin
 			state <= COMPUTE;
 		end
 	end
-
 	COMPUTE: begin
-	 if (i <= 64) begin //For i values from 1 to 64, this is the word expansion part		//should be unchanged from Aaryan's code
+		if (i <= 64) begin //For i values from 1 to 64, this is the word expansion part		//should be unchanged from Aaryan's code
 			case (i)
 				1 : begin
 					w[tstep] <= memory_block[31:0];
@@ -328,8 +350,8 @@ begin
 			endcase
 			i <= i + 8'd1;
 			state <= COMPUTE; //Go back to compute state if i is less than or equal to 64
-		  end
-		  else if(i <= 128) begin //For i values from 65 to 128. this is the sha256_op part
+		end
+		else if(i <= 128) begin //For i values from 65 to 128. this is the sha256_op part
 			a <= h + (rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25)) + ((e & f) ^ ((~e) & g)) + k[tstep - 8'd64] + w[tstep - 8'd64] + (rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
 			b <= a;
 			c <= b;
@@ -340,8 +362,8 @@ begin
 			h <= g;
 			i <= i + 8'd1;
 			state <= COMPUTE; //Go back to compute if i value is in [65, 128]
-		  end
-		  else if (i == 129) begin //For i value 129	
+		end
+		else if (i == 129) begin //For i value 129	
 		   //a through h are going to be used again BLOCK state to initialize h0 to h7
 		   a <= a + h0;
 			b <= b + h1;		
@@ -353,8 +375,8 @@ begin
 			h <= h + h7;
 			i <= i + 1;
 			state <= COMPUTE;
-		  end
-		  else begin
+		end
+		else begin
 			if(phase == ONE) begin			//NOT needed, just here for readabilty
 				phase <= TWO;
 				aa <= a;
@@ -365,19 +387,16 @@ begin
 				ff<= f;
 				gg<= g;
 				hh<= h;	
-		   	end
-			else if (phase == TWO) begin	// this should only be ran if we are in phase 2  
-				
-				phase <= THREE;
-			end
-			else if (phase == THREE) begin	// this should only be ran if we are in phase 2  
-				Hout[nonce] <= a;
-				phase <= TWO;
-				
-			end
+		   end
+		else if (phase == TWO) begin	// this should only be ran if we are in phase 2  
+			phase <= THREE;
+		end
+		else if (phase == THREE) begin	// this should only be ran if we are in phase 2  
+			Hout[nonce] <= a;
+			phase <= TWO;	
+		end
 			state <= IDLE; //Go to IDLE if state if i value is 130 		(because IDLE now does processsing)
-		  end 
-    end	
+		end
 	end
 	WRITE: begin
 		if (nonce < 16) begin
@@ -390,12 +409,12 @@ begin
 			cur_we <= 0; //Because next state is IDLE state
 			nonce <= 32'd0;
 			state <= DONE;
-			//offset <= 0;
+//			offset <= 0;
 		end
 	end
 	DONE: begin
 	end
   endcase
 end
-assign done = (state == DONE);
+
 endmodule
