@@ -355,36 +355,100 @@ begin
 	WRITE: begin //We only come to write in phase DONE so no need to check for phase
 		case (write_idx)
 			0: begin
+				mem_addr <= mem_addr + 16'd1;
+				write_idx <= write_idx + 4'd1;
+				state <= WRITE;
+				mem_write_data <= H[1][0];
 			end
 			1: begin
+				mem_addr <= mem_addr + 16'd1;
+				write_idx <= write_idx + 4'd1;
+				state <= WRITE;
+				mem_write_data <= H[2][0];
 			end
 			2: begin
+				mem_addr <= mem_addr + 16'd1;
+				write_idx <= write_idx + 4'd1;
+				state <= WRITE;
+				mem_write_data <= H[3][0];
 			end
 			3: begin
+				mem_addr <= mem_addr + 16'd1;
+				write_idx <= write_idx + 4'd1;
+				state <= WRITE;
+				mem_write_data <= H[4][0];
 			end
 			4: begin
+				mem_addr <= mem_addr + 16'd1;
+				write_idx <= write_idx + 4'd1;
+				state <= WRITE;
+				mem_write_data <= H[5][0];
 			end
 			5: begin
+				mem_addr <= mem_addr + 16'd1;
+				write_idx <= write_idx + 4'd1;
+				state <= WRITE;
+				mem_write_data <= H[6][0];
 			end
 			6: begin
+				mem_addr <= mem_addr + 16'd1;
+				write_idx <= write_idx + 4'd1;
+				state <= WRITE;
+				mem_write_data <= H[7][0];
 			end
 			7: begin
+				mem_addr <= mem_addr + 16'd1;
+				write_idx <= write_idx + 4'd1;
+				state <= WRITE;
+				mem_write_data <= H[8][0];
 			end
 			8: begin
+				mem_addr <= mem_addr + 16'd1;
+				write_idx <= write_idx + 4'd1;
+				state <= WRITE;
+				mem_write_data <= H[9][0];
 			end
 			9: begin
+				mem_addr <= mem_addr + 16'd1;
+				write_idx <= write_idx + 4'd1;
+				state <= WRITE;
+				mem_write_data <= H[10][0];
 			end
 			10: begin
+				mem_addr <= mem_addr + 16'd1;
+				write_idx <= write_idx + 4'd1;
+				state <= WRITE;
+				mem_write_data <= H[11][0];
 			end
 			11: begin
+				mem_addr <= mem_addr + 16'd1;
+				write_idx <= write_idx + 4'd1;
+				state <= WRITE;
+				mem_write_data <= H[12][0];
 			end
 			12: begin
+				mem_addr <= mem_addr + 16'd1;
+				write_idx <= write_idx + 4'd1;
+				state <= WRITE;
+				mem_write_data <= H[13][0];
 			end
 			13: begin
+				mem_addr <= mem_addr + 16'd1;
+				write_idx <= write_idx + 4'd1;
+				state <= WRITE;
+				mem_write_data <= H[14][0];
 			end
 			14: begin
+				mem_addr <= mem_addr + 16'd1;
+				write_idx <= write_idx + 4'd1;
+				state <= WRITE;
+				mem_write_data <= H[15][0];
 			end
 			15: begin
+				mem_we <= 1'b0;
+				write_idx <= 4'd0; //For the future
+				state <= IDLE;
+				phase <= DONE;
 			end
 		endcase
 	end
