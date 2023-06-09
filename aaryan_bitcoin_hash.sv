@@ -259,8 +259,8 @@ begin
 				state <= COMPUTE; //Go back to compute if compute_sub_state value is in [26, 89]
 			end
 			else begin //For compute_sub_state = 90, w0 through w7 (FOR EACH OF 16 NONCES) is set to the final result of this phase's computation
-				compute_sub_state <= 0; //reset for the future
 				for(int idx = 0; idx < 16; idx++) begin //This for loop sets w0 through w7 for EACH of 16 nonce values in preparation for phase 3
+					//Now, the output hash is directly stored into message bits for phase 3
 					w[idx][0] <= H[idx][0] + a[idx];
 					w[idx][1] <= H[idx][1] + b[idx];
 					w[idx][2] <= H[idx][2] + c[idx];
@@ -269,6 +269,33 @@ begin
 					w[idx][5] <= H[idx][5] + f[idx];
 					w[idx][6] <= H[idx][6] + g[idx];
 					w[idx][7] <= H[idx][7] + h[idx];
+					//And now, padding
+					w[idx][8] <= 32'h80000000;
+					w[idx][9] <= 32'h00000000;
+					w[idx][10] <= 32'h00000000;
+					w[idx][11] <= 32'h00000000;
+					w[idx][12] <= 32'h00000000;
+					w[idx][13] <= 32'h00000000;
+					w[idx][14] <= 32'h00000000;
+					w[idx][15] <= 32'd256;
+					//Now, hash values will be initialized to the most initial hash values for phase 3
+					H[idx][0] <= 32'h6a09e667; 
+					H[idx][1] <= 32'hbb67ae85;
+					H[idx][2] <= 32'h3c6ef372;
+					H[idx][3] <= 32'ha54ff53a;
+					H[idx][4] <= 32'h510e527f;
+					H[idx][5] <= 32'h9b05688c;
+					H[idx][6] <= 32'h1f83d9ab;
+					H[idx][7] <= 32'h5be0cd19;
+					//Now, I am also going to initialize a through h to this initial hash so that they can be used directly in sha256_operation step without waiting an extra cycle
+					a[idx] <= 32'h6a09e667; 
+					b[idx] <= 32'hbb67ae85;
+					c[idx] <= 32'h3c6ef372;
+					d[idx] <= 32'ha54ff53a;
+					e[idx] <= 32'h510e527f;
+					f[idx] <= 32'h9b05688c;
+					g[idx] <= 32'h1f83d9ab;
+					h[idx] <= 32'h5be0cd19;
 				end
 				state <= COMPUTE; //Phase 3 starts from BLOCK stage
 				phase <= THREE; //Moving to phase 3 now
@@ -276,6 +303,43 @@ begin
 			end
 		end
 		else if(phase == THREE) begin
+			//At this stage (entering compute in phase 3), we only need to compute words from word 17 to 64 instead of 1 to 64 as phase 2 has already transferred hash output + padding directly into words 1 to 16
+			if(compute_sub_state < 24) begin //Words 17 to 64 are computed for compute_sub_state values 0 to 23
+				state <= COMPUTE;
+				compute_sub_state <= compute_sub_state + 7'd1; 
+				for(int idx = 0; idx < 16; idx++) begin //For loop does it for each nonce value
+					w[idx][2*compute_sub_state + 7'd16] <= w[idx][2*compute_sub_state] + w[idx][2*compute_sub_state + 7'd9] + (rightrotate(w[idx][2*compute_sub_state + 7'd1],7) ^ rightrotate(w[idx][2*compute_sub_state + 7'd1],18) ^ (w[idx][2*compute_sub_state + 7'd1] >> 3)) + (rightrotate(w[idx][2*compute_sub_state + 7'd14],17) ^ rightrotate(w[idx][2*compute_sub_state + 7'd14],19) ^ (w[idx][2*compute_sub_state + 7'd14] >> 10));
+					w[idx][2*compute_sub_state + 7'd17] <= w[idx][2*compute_sub_state + 7'd1] + w[idx][2*compute_sub_state + 7'd10] + (rightrotate(w[idx][2*compute_sub_state + 7'd2],7) ^ rightrotate(w[idx][2*compute_sub_state + 7'd2],18) ^ (w[idx][2*compute_sub_state + 7'd2] >> 3)) + (rightrotate(w[idx][2*compute_sub_state + 7'd15],17) ^ rightrotate(w[idx][2*compute_sub_state + 7'd15],19) ^ (w[idx][2*compute_sub_state + 7'd15] >> 10));
+				end
+			end
+			else if(compute_sub_state < 88) begin //sha256_op is performed when compute_sub_state is in [24, 87]
+				for(int idx = 0; idx < 16; idx++) begin
+					a[idx] <= h[idx] + (rightrotate(e[idx], 6) ^ rightrotate(e[idx], 11) ^ rightrotate(e[idx], 25)) + ((e[idx] & f[idx]) ^ ((~(e[idx])) & g[idx])) + k[compute_sub_state - 8'd24] + w[idx][compute_sub_state - 8'd24] + (rightrotate(a[idx], 2) ^ rightrotate(a[idx], 13) ^ rightrotate(a[idx], 22)) + ((a[idx] & b[idx]) ^ (a[idx] & c[idx]) ^ (b[idx] & c[idx]));
+					b[idx] <= a[idx];
+					c[idx] <= b[idx];
+					d[idx] <= c[idx];
+					e[idx] <= d[idx] + h[idx] + (rightrotate(e[idx], 6) ^ rightrotate(e[idx], 11) ^ rightrotate(e[idx], 25)) + ((e[idx] & f[idx]) ^ ((~(e[idx])) & g[idx])) + k[compute_sub_state - 8'd24] + w[idx][compute_sub_state - 8'd24];
+					f[idx] <= e[idx];
+					g[idx] <= f[idx];
+					h[idx] <= g[idx];
+				end
+				state <= COMPUTE;
+				compute_sub_state <= compute_sub_state + 7'd1;
+			end
+			else begin //compute_sub_state = 88 is used to store final hashes for each nonce into h0 through h7 and prepare to enter write state 
+				for(int idx = 0; idx < 16; idx++) begin
+					H[idx][0] <= H[idx][0] + a[idx];
+					H[idx][1] <= H[idx][1] + b[idx];
+					H[idx][2] <= H[idx][2] + c[idx];
+					H[idx][3] <= H[idx][3] + d[idx];
+					H[idx][4] <= H[idx][4] + e[idx];
+					H[idx][5] <= H[idx][5] + f[idx];
+					H[idx][6] <= H[idx][6] + g[idx];
+					H[idx][7] <= H[idx][7] + h[idx];
+				end
+				state <= WRITE; //Next state is the write state
+				compute_sub_state <= 0; //For the future
+			end
 		end
 	end
 	WRITE: begin //We only come to write in phase DONE so no need to check for phase
