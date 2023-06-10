@@ -14,6 +14,8 @@ enum logic [1:0] {ONE, TWO, THREE, DONE} phase;
 //Compute_sub states to increase speed
 logic [6:0] compute_sub_state;
 
+logic [6:0] sha_idx;
+
 //logic [ 4:0] state; //Was given in starter code, commented out by me
 logic [31:0] hout[num_nonces];
 
@@ -124,76 +126,127 @@ begin
 	end
 	COMPUTE: begin //COMPUTE occurs in phase 1, 2 and 3
 		if(phase == ONE) begin
-			if(compute_sub_state < 26) begin //Because the last two words, w[0][62] and w[0][63] are calculated when compute_state = 24 and compute_state = 25 is used to initialize values of a through h
-				case (compute_sub_state)
-					0: begin
-						//All of these can be set in parallel
-						w[0][0] <= memory_blocks[0][31:0];
-						w[0][1] <= memory_blocks[0][63:32];
-						w[0][2] <= memory_blocks[0][95:64];
-						w[0][3] <= memory_blocks[0][127:96];
-						w[0][4] <= memory_blocks[0][159:128];
-						w[0][5] <= memory_blocks[0][191:160];
-						w[0][6] <= memory_blocks[0][223:192];
-						w[0][7] <= memory_blocks[0][255:224];
-						w[0][8] <= memory_blocks[0][287:256];
-						w[0][9] <= memory_blocks[0][319:288];
-						w[0][10] <= memory_blocks[0][351:320];
-						w[0][11] <= memory_blocks[0][383:352];
-						w[0][12] <= memory_blocks[0][415:384];
-						w[0][13] <= memory_blocks[0][447:416];
-						w[0][14] <= memory_blocks[0][479:448];
-						w[0][15] <= memory_blocks[0][511:480];
-						compute_sub_state <= compute_sub_state + 7'd1;
-						state <= COMPUTE;
-					end
-					25: begin //Used to initialize a through h so that they can be used in sha256 operation step
-						a[0] <= H[0][0];
-						b[0] <= H[0][1];
-						c[0] <= H[0][2];
-						d[0] <= H[0][3];
-						e[0] <= H[0][4];
-						f[0] <= H[0][5];
-						g[0] <= H[0][6];
-						h[0] <= H[0][7];
-						state <= COMPUTE;
-						compute_sub_state <= compute_sub_state + 7'd1;
-					end
-					default: begin //two word computations can be parallelized because w[idx] is required to be known for computation of w[idx + 2]
-						w[0][2*compute_sub_state + 7'd14] <= w[0][2*compute_sub_state - 7'd2] + w[0][2*compute_sub_state + 7'd7] + (rightrotate(w[0][2*compute_sub_state - 7'd1],7) ^ rightrotate(w[0][2*compute_sub_state - 7'd1],18) ^ (w[0][2*compute_sub_state - 7'd1] >> 3)) + (rightrotate(w[0][2*compute_sub_state + 7'd12],17) ^ rightrotate(w[0][2*compute_sub_state + 7'd12],19) ^ (w[0][2*compute_sub_state + 7'd12] >> 10));
-						w[0][2*compute_sub_state + 7'd15] <= w[0][2*compute_sub_state - 7'd1] + w[0][2*compute_sub_state + 7'd8] + (rightrotate(w[0][2*compute_sub_state],7) ^ rightrotate(w[0][2*compute_sub_state],18) ^ (w[0][2*compute_sub_state] >> 3)) + (rightrotate(w[0][2*compute_sub_state + 7'd13],17) ^ rightrotate(w[0][2*compute_sub_state + 7'd13],19) ^ (w[0][2*compute_sub_state + 7'd13] >> 10));
-						compute_sub_state <= compute_sub_state + 7'd1;
-						state <= COMPUTE;
-					end
-				endcase
-			end
-			else if(compute_sub_state < 90) begin //For compute_sub_state >= 26 and <= 89, we peform sha256_op 64 times
-				a[0] <= h[0] + (rightrotate(e[0], 6) ^ rightrotate(e[0], 11) ^ rightrotate(e[0], 25)) + ((e[0] & f[0]) ^ ((~(e[0])) & g[0])) + k[compute_sub_state - 8'd26] + w[0][compute_sub_state - 8'd26] + (rightrotate(a[0], 2) ^ rightrotate(a[0], 13) ^ rightrotate(a[0], 22)) + ((a[0] & b[0]) ^ (a[0] & c[0]) ^ (b[0] & c[0]));
-				b[0] <= a[0];
-				c[0] <= b[0];
-				d[0] <= c[0];
-				e[0] <= d[0] + h[0] + (rightrotate(e[0], 6) ^ rightrotate(e[0], 11) ^ rightrotate(e[0], 25)) + ((e[0] & f[0]) ^ ((~(e[0])) & g[0])) + k[compute_sub_state - 8'd26] + w[0][compute_sub_state - 8'd26];
-				f[0] <= e[0];
-				g[0] <= f[0];
-				h[0] <= g[0];
-				compute_sub_state <= compute_sub_state + 7'd1;
-				state <= COMPUTE; //Go back to compute if compute_sub_state value is in [26, 89]
-			end
-			else begin //For compute_sub_state = 90, h0 through h7 (FOR EACH OF 16 NONCES) is set to the final result of this phase's computation
-				compute_sub_state <= 0; //reset for the future
-				for(int idx = 0; idx < 16; idx++) begin //This for loop sets h0 through h7 for EACH of 16 nonce values (they are all same and are equal to the oytput hash of phase one)
-					H[idx][0] <= H[0][0] + a[0];
-					H[idx][1] <= H[0][1] + b[0];
-					H[idx][2] <= H[0][2] + c[0];
-					H[idx][3] <= H[0][3] + d[0];
-					H[idx][4] <= H[0][4] + e[0];
-					H[idx][5] <= H[0][5] + f[0];
-					H[idx][6] <= H[0][6] + g[0];
-					H[idx][7] <= H[0][7] + h[0];
+//			if(compute_sub_state < 26) begin //Because the last two words, w[0][62] and w[0][63] are calculated when compute_state = 24 and compute_state = 25 is used to initialize values of a through h
+//				case (compute_sub_state)
+//					0: begin
+//						//All of these can be set in parallel
+//						w[0][0] <= memory_blocks[0][31:0];
+//						w[0][1] <= memory_blocks[0][63:32];
+//						w[0][2] <= memory_blocks[0][95:64];
+//						w[0][3] <= memory_blocks[0][127:96];
+//						w[0][4] <= memory_blocks[0][159:128];
+//						w[0][5] <= memory_blocks[0][191:160];
+//						w[0][6] <= memory_blocks[0][223:192];
+//						w[0][7] <= memory_blocks[0][255:224];
+//						w[0][8] <= memory_blocks[0][287:256];
+//						w[0][9] <= memory_blocks[0][319:288];
+//						w[0][10] <= memory_blocks[0][351:320];
+//						w[0][11] <= memory_blocks[0][383:352];
+//						w[0][12] <= memory_blocks[0][415:384];
+//						w[0][13] <= memory_blocks[0][447:416];
+//						w[0][14] <= memory_blocks[0][479:448];
+//						w[0][15] <= memory_blocks[0][511:480];
+//						compute_sub_state <= compute_sub_state + 7'd1;
+//						state <= COMPUTE;
+//					end
+//					25: begin //Used to initialize a through h so that they can be used in sha256 operation step
+//						a[0] <= H[0][0];
+//						b[0] <= H[0][1];
+//						c[0] <= H[0][2];
+//						d[0] <= H[0][3];
+//						e[0] <= H[0][4];
+//						f[0] <= H[0][5];
+//						g[0] <= H[0][6];
+//						h[0] <= H[0][7];
+//						state <= COMPUTE;
+//						compute_sub_state <= compute_sub_state + 7'd1;
+//					end
+//					default: begin //two word computations can be parallelized because w[idx] is required to be known for computation of w[idx + 2]
+//						w[0][2*compute_sub_state + 7'd14] <= w[0][2*compute_sub_state - 7'd2] + w[0][2*compute_sub_state + 7'd7] + (rightrotate(w[0][2*compute_sub_state - 7'd1],7) ^ rightrotate(w[0][2*compute_sub_state - 7'd1],18) ^ (w[0][2*compute_sub_state - 7'd1] >> 3)) + (rightrotate(w[0][2*compute_sub_state + 7'd12],17) ^ rightrotate(w[0][2*compute_sub_state + 7'd12],19) ^ (w[0][2*compute_sub_state + 7'd12] >> 10));
+//						w[0][2*compute_sub_state + 7'd15] <= w[0][2*compute_sub_state - 7'd1] + w[0][2*compute_sub_state + 7'd8] + (rightrotate(w[0][2*compute_sub_state],7) ^ rightrotate(w[0][2*compute_sub_state],18) ^ (w[0][2*compute_sub_state] >> 3)) + (rightrotate(w[0][2*compute_sub_state + 7'd13],17) ^ rightrotate(w[0][2*compute_sub_state + 7'd13],19) ^ (w[0][2*compute_sub_state + 7'd13] >> 10));
+//						compute_sub_state <= compute_sub_state + 7'd1;
+//						state <= COMPUTE;
+//					end
+//				endcase
+//			end
+//			else if(compute_sub_state < 90) begin //For compute_sub_state >= 26 and <= 89, we peform sha256_op 64 times
+//				a[0] <= h[0] + (rightrotate(e[0], 6) ^ rightrotate(e[0], 11) ^ rightrotate(e[0], 25)) + ((e[0] & f[0]) ^ ((~(e[0])) & g[0])) + k[compute_sub_state - 8'd26] + w[0][compute_sub_state - 8'd26] + (rightrotate(a[0], 2) ^ rightrotate(a[0], 13) ^ rightrotate(a[0], 22)) + ((a[0] & b[0]) ^ (a[0] & c[0]) ^ (b[0] & c[0]));
+//				b[0] <= a[0];
+//				c[0] <= b[0];
+//				d[0] <= c[0];
+//				e[0] <= d[0] + h[0] + (rightrotate(e[0], 6) ^ rightrotate(e[0], 11) ^ rightrotate(e[0], 25)) + ((e[0] & f[0]) ^ ((~(e[0])) & g[0])) + k[compute_sub_state - 8'd26] + w[0][compute_sub_state - 8'd26];
+//				f[0] <= e[0];
+//				g[0] <= f[0];
+//				h[0] <= g[0];
+//				compute_sub_state <= compute_sub_state + 7'd1;
+//				state <= COMPUTE; //Go back to compute if compute_sub_state value is in [26, 89]
+//			end
+//			else begin //For compute_sub_state = 90, h0 through h7 (FOR EACH OF 16 NONCES) is set to the final result of this phase's computation
+//				compute_sub_state <= 0; //reset for the future
+//				for(int idx = 0; idx < 16; idx++) begin //This for loop sets h0 through h7 for EACH of 16 nonce values (they are all same and are equal to the oytput hash of phase one)
+//					H[idx][0] <= H[0][0] + a[0];
+//					H[idx][1] <= H[0][1] + b[0];
+//					H[idx][2] <= H[0][2] + c[0];
+//					H[idx][3] <= H[0][3] + d[0];
+//					H[idx][4] <= H[0][4] + e[0];
+//					H[idx][5] <= H[0][5] + f[0];
+//					H[idx][6] <= H[0][6] + g[0];
+//					H[idx][7] <= H[0][7] + h[0];
+//				end
+//				state <= BLOCK; //Phase 2 starts from BLOCK stage
+//				phase <= TWO; //Moving to phase two now
+//			end
+			case (compute_sub_state)
+				0: begin
+					w[0][0] <= memory_blocks[0][31:0];
+					w[0][1] <= memory_blocks[0][63:32];
+					w[0][2] <= memory_blocks[0][95:64];
+					w[0][3] <= memory_blocks[0][127:96];
+					w[0][4] <= memory_blocks[0][159:128];
+					w[0][5] <= memory_blocks[0][191:160];
+					w[0][6] <= memory_blocks[0][223:192];
+					w[0][7] <= memory_blocks[0][255:224];
+					w[0][8] <= memory_blocks[0][287:256];
+					w[0][9] <= memory_blocks[0][319:288];
+					w[0][10] <= memory_blocks[0][351:320];
+					w[0][11] <= memory_blocks[0][383:352];
+					w[0][12] <= memory_blocks[0][415:384];
+					w[0][13] <= memory_blocks[0][447:416];
+					w[0][14] <= memory_blocks[0][479:448];
+					w[0][15] <= memory_blocks[0][511:480];
+					a[0] <= H[0][0];
+					b[0] <= H[0][1];
+					c[0] <= H[0][2];
+					d[0] <= H[0][3];
+					e[0] <= H[0][4];
+					f[0] <= H[0][5];
+					g[0] <= H[0][6];
+					h[0] <= H[0][7];
+					state <= COMPUTE;
+					compute_sub_state <= compute_sub_state + 7'd1;
+					sha_idx <= 0;
 				end
-				state <= BLOCK; //Phase 2 starts from BLOCK stage
-				phase <= TWO; //Moving to phase two now
-			end
+				1: begin
+					if(sha_idx == 64) begin
+						sha_idx <= 0;
+						compute_sub_state <= compute_sub_state + 1;
+						state <= COMPUTE;
+					end
+					else begin 
+						a[0] <= h[0] + (rightrotate(e[0], 6) ^ rightrotate(e[0], 11) ^ rightrotate(e[0], 25)) + ((e[0] & f[0]) ^ ((~e[0]) & g[0])) + k[sha_idx % 16] + w[0][sha_idx % 16] + (rightrotate(a[0], 2) ^ rightrotate(a[0], 13) ^ rightrotate(a[0], 22)) + ((a[0] & b[0]) ^ (a[0] & c[0]) ^ (b[0] & c[0]));
+						b[0] <= a[0];
+						c[0] <= b[0];
+						d[0] <= c[0];
+						e[0] <= d[0] + h[0] + (rightrotate(e[0], 6) ^ rightrotate(e[0], 11) ^ rightrotate(e[0], 25)) + ((e[0] & f) ^ ((~e[0]) & g[0])) + k[sha_idx % 16] + w[0][sha_idx % 16];
+						f[0] <= e[0];
+						g[0] <= f[0];
+						h[0] <= g[0];
+						w[0][sha_idx % 16] <= w[sha_idx % 16] + w[tstep - 7] + (rightrotate(w[tstep - 15],7) ^ rightrotate(w[tstep - 15],18) ^ (w[tstep - 15] >> 3)) + (rightrotate(w[tstep - 2],17) ^ rightrotate(w[tstep - 2],19) ^ (w[tstep - 2] >> 10));
+						sha_idx <= sha_idx + 1;
+						state <= COMPUTE;
+					end
+				end
+			endcase
 		end
 		else if(phase == TWO) begin
 			if(compute_sub_state < 26) begin //Because the last two words, w[0][62] and w[0][63] are calculated when compute_state = 24 and compute_state = 25 is used to initialize values of a through h
