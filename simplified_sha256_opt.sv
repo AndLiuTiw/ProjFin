@@ -9,7 +9,7 @@ module simplified_sha256 #(parameter integer NUM_OF_WORDS = 20)(
 
 // FSM state variables 
 enum logic [2:0] {IDLE, READ, BLOCK, COMPUTE, WRITE} state;
-enum logic [1:0] {EXPAND, OP, OUT} step;
+enum logic {OP, OUT} step;
 
 // NOTE : Below mentioned frame work is for reference purpose.
 // Local variables might not be complete and you might have to add more variables
