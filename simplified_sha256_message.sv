@@ -15,12 +15,12 @@ enum logic [2:0] {IDLE, READ, BLOCK, COMPUTE, WRITE} state;
 // or modify these variables. Code below is more as a reference.
 
 // Local variables
-logic [31:0] w[16]; //To be used in word expansion and sha operation steps, have not initialized yet
+logic [31:0] w[64]; //To be used in word expansion and sha operation steps, have not initialized yet
 logic [31:0] message[20]; //These are the 20 message blocks, each one is 32 bits
 logic [31:0] wt; //Wtf is this (unused for now)
 logic [31:0] h0, h1, h2, h3, h4, h5, h6, h7; //initialized in always_ff block BLOCK state
 logic [31:0] a, b, c, d, e, f, g, h; //initialized in always_ff block IDLE state
-logic [ 7:0] flag, x, i, j, ind, ind2; //i has been initialized in IDLE, we're using j as the index variable to load different blocks, ind is being used in the WRITE state, ind2 is being usd in the READ state
+logic [ 7:0] i, j, ind, ind2; //i has been initialized in IDLE, we're using j as the index variable to load different blocks, ind is being used in the WRITE state, ind2 is being usd in the READ state
 logic [15:0] offset; // in word address //initialized in IDLE state
 logic [ 7:0] num_blocks; //initialized by determine_num_blocks function
 logic        cur_we; //initialized in IDLE state 
@@ -141,20 +141,17 @@ begin
 		h5 <= f;
 		h6 <= g;
 		h7 <= h;
-		flag <= 0;
-		x <= 8'd0;
 		if (j == 0) begin 
-//			w[15],w[14],w[13],w[12],w[11],w[10].w[9].w[8],w[7],w[6],w[5],w[4],w[3],w[2],w[1],w[0] <= message[15],message[14],message[13],message[12],message[11],message[10],message[9],message[8],message[7],message[6],message[5],message[4],message[3],message[2],message[1],message[0];
+//			memory_block <= {message[15],message[14],message[13],message[12],message[11],message[10],message[9],message[8],message[7],message[6],message[5],message[4],message[3],message[2],message[1],message[0]};
 			for (int n = 0; n < 16; n++) begin
 				w[n] <= message[n];
 			end
 			j <= j + 8'd1;
 			state <= COMPUTE;
-			i <= 1;
+			i <= 17;
 		end
 		else if (j == 1) begin
-//			w[15],w[14],w[13],w[12],w[11],w[10].w[9].w[8],w[7],w[6],w[5],w[4],w[3],w[2],w[1],w[0]
-//	<= 32'd640,320'b0,1'b1,31'b0,message[19],message[18],message[17],message[16];
+//			memory_block <= {32'd640,320'b0,1'b1,31'b0,message[19],message[18],message[17],message[16]};
 			for (int n = 0; n < 4; n++) begin
 				w[n] <= message[n+16];
 			end
@@ -165,7 +162,7 @@ begin
 			w[15] <= 32'd640;
 			j <= j + 8'd1;
 			state <= COMPUTE;
-			i <= 1;
+			i <= 17;
 		end
 		else if(j == 2) begin //This is to create a 1 cycle delay so that the right value of h0 can be written
 			j <=  j + 8'd1;
@@ -187,38 +184,78 @@ begin
     // move to WRITE stage
     COMPUTE: begin
 	// 64 processing rounds steps for 512-bit block 
-		if (flag == 0) begin
-			for (int n = 0; n < 15; n++) begin
-				w[n] <= w[n+1];
-			end
-			w[15] <= w[0]		// w[t-16]
-				+ w[9] 				// w[t-7]
-				+ (rightrotate(w[1],7) ^ rightrotate(w[1],18) ^ (w[1] >> 3))	// s0
-				+ (rightrotate(w[14],17) ^ rightrotate(w[14],19) ^ (w[14] >> 10));   //s1
-			flag <= 1;
-			x <= x + 1;
-			state <= COMPUTE;
-		end
-		else if (flag == 1) begin
-			a <= h + (rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25)) + ((e & f) ^ ((~e) & g)) + k[tstep - 8'd64] + w[15] + (rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
+        if (i <= 64) begin //For i values from 1 to 64, this is the word expansion part
+			case (i)
+//				1 : begin
+//					w[tstep] <= memory_block[31:0];
+//				end
+//				2 : begin
+//					w[tstep] <= memory_block[63:32];
+//				end
+//				3 : begin
+//					w[tstep] <= memory_block[95:64];
+//				end
+//				4 : begin
+//					w[tstep] <= memory_block[127:96];
+//				end
+//				5 : begin
+//					w[tstep] <= memory_block[159:128];
+//				end
+//				6 : begin
+//					w[tstep] <= memory_block[191:160];
+//				end
+//				7 : begin
+//					w[tstep] <= memory_block[223:192];
+//				end
+//				8 : begin
+//					w[tstep] <= memory_block[255:224];
+//				end
+//				9 : begin
+//					w[tstep] <= memory_block[287:256];
+//				end
+//				10 : begin
+//					w[tstep] <= memory_block[319:288];
+//				end
+//				11 : begin
+//					w[tstep] <= memory_block[351:320];
+//				end
+//				12 : begin
+//					w[tstep] <= memory_block[383:352];
+//				end
+//				13 : begin
+//					w[tstep] <= memory_block[415:384];
+//				end
+//				14 : begin
+//					w[tstep] <= memory_block[447:416];
+//				end
+//				15 : begin
+//					w[tstep] <= memory_block[479:448];
+//				end
+//				16 : begin
+//					w[tstep] <= memory_block[511:480];
+//				end
+				default : begin //For i = 17 to 64
+					w[tstep] <= w[tstep - 16] + w[tstep - 7] + (rightrotate(w[tstep - 15],7) ^ rightrotate(w[tstep - 15],18) ^ (w[tstep - 15] >> 3)) + (rightrotate(w[tstep - 2],17) ^ rightrotate(w[tstep - 2],19) ^ (w[tstep - 2] >> 10));
+				end
+			endcase
+			i <= i + 8'd1;
+			state <= COMPUTE; //Go back to compute state if i is less than or equal to 64
+		  end
+		  else if(i <= 128) begin //For i values from 65 to 128. this is the sha256_op part
+			a <= h + (rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25)) + ((e & f) ^ ((~e) & g)) + k[tstep - 8'd64] + w[tstep - 8'd64] + (rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
 			b <= a;
 			c <= b;
 			d <= c;
-			e <= d + h + (rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25)) + ((e & f) ^ ((~e) & g)) + k[tstep - 8'd64] + w[15];
+			e <= d + h + (rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25)) + ((e & f) ^ ((~e) & g)) + k[tstep - 8'd64] + w[tstep - 8'd64];
 			f <= e;
 			g <= f;
 			h <= g;
-			if (x < 63) begin
-				flag <= 0;
-				state <= COMPUTE;
-			end
-			else begin
-				flag <= 2;
-				state <= COMPUTE;
-			end
-		end
-		else begin
-			a <= a + h0;
+			i <= i + 8'd1;
+			state <= COMPUTE; //Go back to compute if i value is in [65, 128]
+		  end
+		  else begin //For i value 29
+		   //a through h are going to be used again BLOCK state to initialize h0 to h7
+		   a <= a + h0;
 			b <= b + h1;
 			c <= c + h2;
 			d <= d + h3;
@@ -227,7 +264,7 @@ begin
 			g <= g + h6;
 			h <= h + h7;
 			state <= BLOCK; //Go to BLOCK state if i value is 129
-		end
+		  end
     end
 
     // h0 to h7 each are 32 bit hashes, which makes up total 256 bit value
