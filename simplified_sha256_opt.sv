@@ -9,6 +9,7 @@ module simplified_sha256 #(parameter integer NUM_OF_WORDS = 20)(
 
 // FSM state variables 
 enum logic [2:0] {IDLE, READ, BLOCK, COMPUTE, WRITE} state;
+enum logic [1:0] {EXPAND, OP, OUT} step;
 
 // NOTE : Below mentioned frame work is for reference purpose.
 // Local variables might not be complete and you might have to add more variables
@@ -20,14 +21,12 @@ logic [31:0] message[20]; //These are the 20 message blocks, each one is 32 bits
 logic [31:0] wt; //Wtf is this (unused for now)
 logic [31:0] h0, h1, h2, h3, h4, h5, h6, h7; //initialized in always_ff block BLOCK state
 logic [31:0] a, b, c, d, e, f, g, h; //initialized in always_ff block IDLE state
-logic [ 7:0] flag, x, i, j, ind, ind2; //i has been initialized in IDLE, we're using j as the index variable to load different blocks, ind is being used in the WRITE state, ind2 is being usd in the READ state
+logic [ 7:0] i, j, ind, ind2; //i has been initialized in IDLE, we're using j as the index variable to load different blocks, ind is being used in the WRITE state, ind2 is being usd in the READ state
 logic [15:0] offset; // in word address //initialized in IDLE state
-logic [ 7:0] num_blocks; //initialized by determine_num_blocks function
 logic        cur_we; //initialized in IDLE state 
 logic [15:0] cur_addr; //Initialized in IDLE state
 logic [31:0] cur_write_data; //Unitialized, it's use is understood
 logic [511:0] memory_block; //Not sure how this is to be used (unitialized)
-logic [ 7:0] tstep; //initialized by starter code
 
 // SHA256 K constants
 parameter int k[0:63] = '{
@@ -41,18 +40,6 @@ parameter int k[0:63] = '{
    32'h748f82ee,32'h78a5636f,32'h84c87814,32'h8cc70208,32'h90befffa,32'ha4506ceb,32'hbef9a3f7,32'hc67178f2
 };
 
-
-assign num_blocks = determine_num_blocks(NUM_OF_WORDS); 
-assign tstep = (i - 8'd1);
-
-// Note : Function defined are for reference purpose. Feel free to add more functions or modify below.
-// Function to determine number of blocks in memory to fetch
-function logic [7:0] determine_num_blocks(input logic [31:0] size);
-
-  // Student to add function implementation
-  //According to the part1 document, since num of words is hardcoded to 20, there will be 2 blocks only
-  determine_num_blocks = 8'd2;
-endfunction
 
 // Generate request to memory
 // for reading from memory to get original message
@@ -104,8 +91,7 @@ begin
 			cur_we <= 0; //Because nothing needs to be written to memory right now (in the idle state)
 			offset <= 0; //Should probably be 0 initially
 			cur_addr <= message_addr; //Because curr_addr should be initialized to 1st message location (address of W0 (We have words from W0 to W15))in memory
-			i <= 1; //Initializing to 1 because tstep = i - 1 and tstep should start from 0
-			j <= 0; //Don't even know if this will be used
+			j <= 0; //used
 			ind2 <= 0; //Because next state is the READ state
 			offset <= 0; //Because next state is READ state and I need to create a 1 cycle gap
 			state <= READ;
@@ -141,31 +127,28 @@ begin
 		h5 <= f;
 		h6 <= g;
 		h7 <= h;
-		flag <= 0;
-		x <= 8'd0;
 		if (j == 0) begin 
-//			w[15],w[14],w[13],w[12],w[11],w[10].w[9].w[8],w[7],w[6],w[5],w[4],w[3],w[2],w[1],w[0] <= message[15],message[14],message[13],message[12],message[11],message[10],message[9],message[8],message[7],message[6],message[5],message[4],message[3],message[2],message[1],message[0];
 			for (int n = 0; n < 16; n++) begin
 				w[n] <= message[n];
 			end
 			j <= j + 8'd1;
 			state <= COMPUTE;
-			i <= 1;
+			i <= 0;
+			step <= OP;
 		end
 		else if (j == 1) begin
-//			w[15],w[14],w[13],w[12],w[11],w[10].w[9].w[8],w[7],w[6],w[5],w[4],w[3],w[2],w[1],w[0]
-//	<= 32'd640,320'b0,1'b1,31'b0,message[19],message[18],message[17],message[16];
 			for (int n = 0; n < 4; n++) begin
 				w[n] <= message[n+16];
 			end
-			w[4] <= 32'd1;
+			w[4] <= 32'h80000000;
 			for (int n = 0; n < 10; n++) begin
 				w[n+5] <= 32'b0;
 			end
 			w[15] <= 32'd640;
 			j <= j + 8'd1;
 			state <= COMPUTE;
-			i <= 1;
+			i <= 0;
+			step <= OP;
 		end
 		else if(j == 2) begin //This is to create a 1 cycle delay so that the right value of h0 can be written
 			j <=  j + 8'd1;
@@ -185,50 +168,60 @@ begin
     // Go back to BLOCK stage after each block hash computation is completed and if
     // there are still number of message blocks available in memory otherwise
     // move to WRITE stage
-    COMPUTE: begin
-	// 64 processing rounds steps for 512-bit block 
-		if (flag == 0) begin
-			for (int n = 0; n < 15; n++) begin
-				w[n] <= w[n+1];
+	COMPUTE: begin
+	// 64 processing rounds steps for 512-bit block
+		// shift w every time to keep the useful 16 words in it
+		case(step)
+			OP: begin
+			// this is the word expansion part
+				// store w_new at w 
+				for (int n = 0; n < 15; n++) begin
+					w[n] <= w[n+1];
+				end
+				w[15] <= w[0] 
+					+ w[9]
+					+ (rightrotate(w[1],7) ^ rightrotate(w[1],18) ^ (w[1] >> 3)) 
+					+ (rightrotate(w[14],17) ^ rightrotate(w[14],19) ^ (w[14] >> 10));
+//				w[15] <= wt;
+			// this is the sha256_op part
+				a <= h 
+					+ (rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25)) 
+					+ ((e & f) ^ ((~e) & g)) + k[i] + w[0] 
+					+ (rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22)) 
+					+ ((a & b) ^ (a & c) ^ (b & c));
+				b <= a;
+				c <= b;
+				d <= c;
+				e <= d 
+					+ h 
+					+ (rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25)) 
+					+ ((e & f) ^ ((~e) & g)) 
+					+ k[i] 
+					+ w[0];
+				f <= e;
+				g <= f;
+				h <= g;
+				i <= i + 8'd1;
+				if (i == 63) begin
+					step <= OUT;
+				end
+				state <= COMPUTE; //Go back to compute if i value is in [65, 128]
 			end
-			w[15] <= w[0]		// w[t-16]
-				+ w[9] 				// w[t-7]
-				+ (rightrotate(w[1],7) ^ rightrotate(w[1],18) ^ (w[1] >> 3))	// s0
-				+ (rightrotate(w[14],17) ^ rightrotate(w[14],19) ^ (w[14] >> 10));   //s1
-			flag <= 1;
-			x <= x + 1;
-			state <= COMPUTE;
-		end
-		else if (flag == 1) begin
-			a <= h + (rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25)) + ((e & f) ^ ((~e) & g)) + k[tstep - 8'd64] + w[15] + (rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
-			b <= a;
-			c <= b;
-			d <= c;
-			e <= d + h + (rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25)) + ((e & f) ^ ((~e) & g)) + k[tstep - 8'd64] + w[15];
-			f <= e;
-			g <= f;
-			h <= g;
-			if (x < 63) begin
-				flag <= 0;
-				state <= COMPUTE;
+			OUT: begin
+			// for last compression
+				//a through h are going to be used again BLOCK state to initialize h0 to h7
+				a <= a + h0;
+				b <= b + h1;
+				c <= c + h2;
+				d <= d + h3;
+				e <= e + h4;
+				f <= f + h5;
+				g <= g + h6;
+				h <= h + h7;
+				state <= BLOCK; //Go to BLOCK state if i value is 129
 			end
-			else begin
-				flag <= 2;
-				state <= COMPUTE;
-			end
-		end
-		else begin
-			a <= a + h0;
-			b <= b + h1;
-			c <= c + h2;
-			d <= d + h3;
-			e <= e + h4;
-			f <= f + h5;
-			g <= g + h6;
-			h <= h + h7;
-			state <= BLOCK; //Go to BLOCK state if i value is 129
-		end
-    end
+		endcase
+	end
 
     // h0 to h7 each are 32 bit hashes, which makes up total 256 bit value
     // h0 to h7 after compute stage has final computed hash value
