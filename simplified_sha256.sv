@@ -242,7 +242,7 @@ begin
 			i <= i + 8'd1;
 			state <= COMPUTE; //Go back to compute if i value is in [65, 128]
 		  end
-		  else begin //For i value 29
+		  else begin //For i value 129
 		   //a through h are going to be used again BLOCK state to initialize h0 to h7
 		   a <= a + h0;
 			b <= b + h1;
